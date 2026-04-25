@@ -25,7 +25,9 @@ helm upgrade --install "${RELEASE}" gitea-charts/gitea \
   --set postgresql.enabled=false \
   --set persistence.enabled=false \
   --set gitea.config.cache.ADAPTER=memory \
-  --set gitea.config.database.DB_TYPE=sqlite3
+  --set gitea.config.database.DB_TYPE=sqlite3 \
+  --set gitea.config.webhook.ALLOWED_HOST_LIST='private,*.svc,*.svc.cluster.local,argocd-server.argocd.svc.cluster.local,eventsource-svc.argo-events.svc.cluster.local' \
+  --set gitea.config.webhook.SKIP_TLS_VERIFY=true
 
 kubectl -n "${NAMESPACE}" rollout status deploy/gitea --timeout=120s
 

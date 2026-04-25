@@ -7,6 +7,8 @@ metadata:
     app.kubernetes.io/name: argocd-cm
     app.kubernetes.io/part-of: argocd
 data:
+  # Tighter than the 180s default; webhook still preferred for instant sync.
+  timeout.reconciliation: 30s
   resource.customizations.health.argoproj.io_Rollout: |
 {{ .Values.rolloutHealthCheck | indent 4 }}
 ---

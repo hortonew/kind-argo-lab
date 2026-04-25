@@ -22,9 +22,30 @@ done
 
 PAYLOAD="{\"type\":\"gitea\",\"active\":true,\"config\":{\"url\":\"${HOOK_URL}\",\"content_type\":\"json\"},\"events\":[\"push\"]}"
 
-curl -fsS -X POST -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  -H "Content-Type: application/json" \
-  -d "${PAYLOAD}" \
-  "${GITEA_URL}/api/v1/repos/${ORG}/${REPO}/hooks" >/dev/null
+# Idempotent: skip if a hook with this URL already exists on demo-app.
+if ! curl -fsS -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "${GITEA_URL}/api/v1/repos/${ORG}/${REPO}/hooks" \
+    | grep -q "${HOOK_URL}"; then
+  curl -fsS -X POST -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    -H "Content-Type: application/json" \
+    -d "${PAYLOAD}" \
+    "${GITEA_URL}/api/v1/repos/${ORG}/${REPO}/hooks" >/dev/null
+fi
 
 echo "Gitea webhook configured for ${ORG}/${REPO}"
+
+# ArgoCD git webhook for platform.git so commits trigger an immediate refresh
+# instead of waiting for the (now 30s) reconciliation poll.
+ARGOCD_HOOK_URL="http://argocd-server.argocd.svc.cluster.local/api/webhook"
+ARGOCD_PAYLOAD="{\"type\":\"gitea\",\"active\":true,\"config\":{\"url\":\"${ARGOCD_HOOK_URL}\",\"content_type\":\"json\"},\"events\":[\"push\"]}"
+
+if ! curl -fsS -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "${GITEA_URL}/api/v1/repos/${ORG}/platform/hooks" \
+    | grep -q "${ARGOCD_HOOK_URL}"; then
+  curl -fsS -X POST -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    -H "Content-Type: application/json" \
+    -d "${ARGOCD_PAYLOAD}" \
+    "${GITEA_URL}/api/v1/repos/${ORG}/platform/hooks" >/dev/null
+fi
+
+echo "Gitea webhook configured for ${ORG}/platform -> argocd-server"

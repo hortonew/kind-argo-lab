@@ -10,8 +10,10 @@ up: # Full lab: cluster + all components
   ./scripts/03-push-demo-image.sh
   ./scripts/04-bootstrap-argocd.sh
   ./scripts/035b-configure-gitea-webhook.sh
+  just port-forward
 
 down: # Delete kind cluster + registry
+  just port-forward-stop
   kind delete cluster --name argo-lab || true
   docker rm -f local-registry || true
 

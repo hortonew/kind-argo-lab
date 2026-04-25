@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/argo-lab/platform.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/argo-lab/platform.git
+      targetRevision: main
+      path: charts/app-of-apps
+      helm:
+        valueFiles:
+          - $values/envs/lab/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

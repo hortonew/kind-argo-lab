@@ -1,0 +1,10 @@
+apiVersion: v2
+name: argo-workflows-wrapper
+description: Argo Workflows wrapper chart for local lab
+type: application
+version: 0.1.0
+appVersion: "3.5.8"
+dependencies:
+  - name: argo-workflows
+    version: 0.45.8
+    repository: https://argoproj.github.io/argo-helm

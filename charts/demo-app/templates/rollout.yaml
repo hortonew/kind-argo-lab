@@ -1,0 +1,28 @@
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: demo-rollout
+  namespace: demo
+spec:
+  replicas: {{ .Values.rollout.replicas }}
+  selector:
+    matchLabels:
+      app: demo-app
+  strategy:
+    canary:
+      steps:
+        - setWeight: {{ .Values.rollout.canaryWeight }}
+        - pause: {}
+  template:
+    metadata:
+      labels:
+        app: demo-app
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+{{- end }}

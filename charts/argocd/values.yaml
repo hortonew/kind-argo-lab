@@ -1,0 +1,22 @@
+rolloutHealthCheck: |
+  hs = {}
+  if obj.status ~= nil and obj.status.phase ~= nil then
+    if obj.status.phase == "Healthy" then
+      hs.status = "Healthy"
+      hs.message = "Rollout is healthy"
+      return hs
+    end
+  end
+  hs.status = "Progressing"
+  hs.message = "Waiting for rollout to become healthy"
+  return hs
+
+notifications:
+  triggerOnSyncSucceeded: |
+    - when: app.status.operationState.phase in ['Succeeded']
+      send: [app-sync-log]
+  triggerOnSyncFailed: |
+    - when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [app-sync-log]
+  templateAppSyncLog: |
+    message: Application {{.app.metadata.name}} sync state: {{.app.status.sync.status}}

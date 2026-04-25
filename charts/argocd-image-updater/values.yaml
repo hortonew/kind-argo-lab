@@ -1,0 +1,8 @@
+argocd-image-updater:
+  config:
+    registries:
+      - name: local-registry
+        api_url: http://localhost:5001
+        prefix: localhost:5001
+        insecure: true
+        default: true

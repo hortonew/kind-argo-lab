@@ -1,0 +1,18 @@
+argo-workflows:
+  namespaceOverride: argo
+  controller:
+    workflowNamespaces:
+      - argo
+  server:
+    authModes:
+      - server
+  workflow:
+    serviceAccount:
+      create: true
+      name: argo-workflow
+  useStaticCredentials: true
+
+workflowTemplate:
+  imageBuild:
+    sourceImage: nginx:stable-alpine
+    targetImage: localhost:5001/demo-app:v3

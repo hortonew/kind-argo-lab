@@ -1,0 +1,38 @@
+# Defaults shared by all child Applications. Per-env overrides go in envs/<env>/values.yaml.
+repoURL: http://gitea-http.gitea.svc.cluster.local:3000/argo-lab/platform.git
+targetRevision: main
+project: default
+
+syncPolicy:
+  automated:
+    prune: true
+    selfHeal: true
+  syncOptions:
+    - CreateNamespace=true
+
+apps:
+  argo-events:
+    path: charts/argo-events
+    namespace: argo-events
+  argo-rollouts:
+    path: charts/argo-rollouts
+    namespace: argo-rollouts
+    ignoreDifferences:
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        jqPathExpressions:
+          - .status
+          - .metadata.annotations
+          - .spec.preserveUnknownFields
+  argo-workflows:
+    path: charts/argo-workflows
+    namespace: argo
+  argocd-image-updater:
+    path: charts/argocd-image-updater
+    namespace: argocd
+  argocd-notifications:
+    path: charts/argocd
+    namespace: argocd
+  demo-app:
+    path: charts/demo-app
+    namespace: demo

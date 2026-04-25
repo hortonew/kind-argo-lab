@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: image-build-stub
+  namespace: argo
+spec:
+  entrypoint: copy
+  templates:
+    - name: copy
+      container:
+        image: docker:27-cli
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "Image build stub: copy prebuilt image"
+            echo "This template is intentionally simple for local labs"

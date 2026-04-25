@@ -1,0 +1,27 @@
+{{- range $name, $cfg := .Values.apps }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}
+  namespace: argocd
+  {{- with $cfg.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  project: {{ default $.Values.project $cfg.project }}
+  {{- with $cfg.ignoreDifferences }}
+  ignoreDifferences:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  source:
+    repoURL: {{ default $.Values.repoURL $cfg.repoURL }}
+    targetRevision: {{ default $.Values.targetRevision $cfg.targetRevision }}
+    path: {{ $cfg.path }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ $cfg.namespace }}
+  syncPolicy:
+    {{- toYaml (default $.Values.syncPolicy $cfg.syncPolicy) | nindent 4 }}
+{{- end }}

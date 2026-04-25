@@ -1,0 +1,10 @@
+argo-events:
+  controller:
+    replicas: 1
+  global:
+    imagePullPolicy: IfNotPresent
+  eventbus:
+    nats:
+      native:
+        replicas: 1
+  singleNamespace: true

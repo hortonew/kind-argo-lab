@@ -1,0 +1,8 @@
+# Lab-environment overrides for charts/app-of-apps.
+apps:
+  demo-app:
+    annotations:
+      argocd-image-updater.argoproj.io/image-list: demo-app=localhost:5001/demo-app
+      argocd-image-updater.argoproj.io/write-back-method: git
+      argocd-image-updater.argoproj.io/git-branch: main
+      argocd-image-updater.argoproj.io/demo-app.update-strategy: newest-build

@@ -1,0 +1,17 @@
+image:
+  repository: localhost:5001/demo-app
+  tag: v1
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+deployment:
+  enabled: false
+  replicas: 1
+
+rollout:
+  enabled: true
+  replicas: 2
+  canaryWeight: 20

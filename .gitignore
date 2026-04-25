@@ -2,4 +2,7 @@ TODO.md
 .vscode
 .port-forward.pids
 .port-forward.log
-
+*.tgz
+*.tar.gz
+*.log
+*.lock

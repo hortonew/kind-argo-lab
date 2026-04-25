@@ -19,8 +19,6 @@ metadata:
     app.kubernetes.io/name: argocd-notifications-cm
     app.kubernetes.io/part-of: argocd
 data:
-  service.log: |
-    url: stdout
   service.alertmanager: |
     targets:
       - alertmanager.monitoring.svc:9093
@@ -29,7 +27,7 @@ data:
 {{ .Values.notifications.triggerOnSyncSucceeded | indent 4 }}
   trigger.on-sync-failed: |
 {{ .Values.notifications.triggerOnSyncFailed | indent 4 }}
-  template.app-sync-log: |
-{{ .Values.notifications.templateAppSyncLog | indent 4 }}
+  template.app-sync-succeeded-alert: |
+{{ .Values.notifications.templateAppSyncSucceededAlert | indent 4 }}
   template.app-sync-failed-alert: |
 {{ .Values.notifications.templateAppSyncFailedAlert | indent 4 }}

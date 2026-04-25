@@ -3,6 +3,12 @@ argo-workflows:
   controller:
     workflowNamespaces:
       - argo
+    # Keep only the most recent run per outcome bucket; older Workflows are
+    # garbage-collected by the controller regardless of their TTL.
+    retentionPolicy:
+      completed: 1
+      failed: 1
+      errored: 1
   server:
     authModes:
       - server

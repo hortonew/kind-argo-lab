@@ -14,19 +14,27 @@ rolloutHealthCheck: |
 notifications:
   triggerOnSyncSucceeded: |
     - when: app.status.operationState.phase in ['Succeeded']
-      send: [app-sync-log]
+      send: [app-sync-succeeded-alert]
   triggerOnSyncFailed: |
     - when: app.status.operationState.phase in ['Error', 'Failed']
-      send: [app-sync-log, app-sync-failed-alert]
-  templateAppSyncLog: |
-    message: Application {{.app.metadata.name}} sync state: {{.app.status.sync.status}}
+      send: [app-sync-failed-alert]
+  templateAppSyncSucceededAlert: |
+    alertmanager:
+      labels:
+        alertname: ArgoCDSyncSucceeded
+        severity: info
+        application: "{{.app.metadata.name}}"
+        namespace: "{{.app.metadata.namespace}}"
+      annotations:
+        summary: "ArgoCD sync succeeded for {{.app.metadata.name}}"
+        description: "Application {{.app.metadata.name}} reached state {{.app.status.sync.status}}"
   templateAppSyncFailedAlert: |
     alertmanager:
       labels:
         alertname: ArgoCDSyncFailed
         severity: warning
-        application: {{.app.metadata.name}}
-        namespace: {{.app.metadata.namespace}}
+        application: "{{.app.metadata.name}}"
+        namespace: "{{.app.metadata.namespace}}"
       annotations:
         summary: "ArgoCD sync failed for {{.app.metadata.name}}"
         description: "Application {{.app.metadata.name}} is in {{.app.status.sync.status}} state"

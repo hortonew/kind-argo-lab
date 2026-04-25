@@ -1,0 +1,3 @@
+# Toggle synthetic failures to exercise notification paths.
+failPreSync: false
+failPostSync: false

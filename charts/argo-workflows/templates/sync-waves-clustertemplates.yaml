@@ -1,0 +1,136 @@
+# Reusable cluster-scoped templates referenced by sync-waves-demo's
+# PreSync/PostSync hooks. ClusterWorkflowTemplate so they can be referenced
+# from Workflows running in any namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: presync-migration
+spec:
+  entrypoint: migrate
+  arguments:
+    parameters:
+      - name: fail
+        value: "false"
+  templates:
+    - name: migrate
+      inputs:
+        parameters:
+          - name: fail
+      steps:
+        - - name: schema-migrate
+            template: run-migration
+        - - name: seed
+            template: run-seed
+        - - name: verify
+            template: verify
+            arguments:
+              parameters:
+                - name: fail
+                  value: "{{`{{inputs.parameters.fail}}`}}"
+    - name: run-migration
+      container:
+        image: busybox:1.36
+        command: [sh, -c]
+        args:
+          - |
+            echo "[migrate] applying schema migration..."
+            sleep 2
+            echo "[migrate] done"
+    - name: run-seed
+      container:
+        image: busybox:1.36
+        command: [sh, -c]
+        args:
+          - |
+            echo "[migrate] seeding reference data..."
+            sleep 1
+            echo "[migrate] seed complete"
+    - name: verify
+      inputs:
+        parameters:
+          - name: fail
+      container:
+        image: busybox:1.36
+        command: [sh, -c]
+        args:
+          - |
+            if [ "{{`{{inputs.parameters.fail}}`}}" = "true" ]; then
+              echo "[migrate] verify FAIL (synthetic)"
+              exit 1
+            fi
+            echo "[migrate] schema verification passed"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: postsync-e2e
+spec:
+  entrypoint: probe
+  arguments:
+    parameters:
+      - name: url
+        value: http://sync-waves-app.sync-waves-demo.svc.cluster.local/
+      - name: expect
+        value: "hello from wave 0"
+      - name: fail
+        value: "false"
+  templates:
+    - name: probe
+      inputs:
+        parameters:
+          - name: url
+          - name: expect
+          - name: fail
+      steps:
+        - - name: wait-ready
+            template: wait-ready
+            arguments:
+              parameters:
+                - name: url
+                  value: "{{`{{inputs.parameters.url}}`}}"
+        - - name: assert-body
+            template: assert-body
+            arguments:
+              parameters:
+                - name: url
+                  value: "{{`{{inputs.parameters.url}}`}}"
+                - name: expect
+                  value: "{{`{{inputs.parameters.expect}}`}}"
+                - name: fail
+                  value: "{{`{{inputs.parameters.fail}}`}}"
+    - name: wait-ready
+      inputs:
+        parameters:
+          - name: url
+      retryStrategy:
+        limit: "30"
+        retryPolicy: Always
+        backoff:
+          duration: "2s"
+      container:
+        image: curlimages/curl:8.10.1
+        command: [sh, -c]
+        args:
+          - |
+            curl -fsS --max-time 5 "{{`{{inputs.parameters.url}}`}}" >/dev/null
+            echo "[e2e] service is ready"
+    - name: assert-body
+      inputs:
+        parameters:
+          - name: url
+          - name: expect
+          - name: fail
+      container:
+        image: curlimages/curl:8.10.1
+        command: [sh, -c]
+        args:
+          - |
+            curl -fsS "{{`{{inputs.parameters.url}}`}}" -o /tmp/body
+            echo "[e2e] response:"
+            cat /tmp/body
+            if [ "{{`{{inputs.parameters.fail}}`}}" = "true" ]; then
+              echo "[e2e] FAIL (synthetic)"
+              exit 1
+            fi
+            grep -q "{{`{{inputs.parameters.expect}}`}}" /tmp/body
+            echo "[e2e] assertion passed"

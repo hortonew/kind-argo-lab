@@ -6,7 +6,11 @@ apps:
       argocd-image-updater.argoproj.io/write-back-method: git
       argocd-image-updater.argoproj.io/git-branch: main
       argocd-image-updater.argoproj.io/demo-app.update-strategy: newest-build
-      # Notifications Tier 1: subscribe to log + alertmanager services
-      notifications.argoproj.io/subscribe.on-sync-succeeded.log: ""
-      notifications.argoproj.io/subscribe.on-sync-failed.log: ""
+      # Notifications: alertmanager subscription on failed sync
+      notifications.argoproj.io/subscribe.on-sync-failed.alertmanager: ""
+  sync-waves-demo:
+    annotations:
+      # Full chain: PreSync migration + Deploy + PostSync e2e.
+      # Hook failures fail the whole sync → on-sync-failed fires.
+      notifications.argoproj.io/subscribe.on-sync-succeeded.alertmanager: ""
       notifications.argoproj.io/subscribe.on-sync-failed.alertmanager: ""

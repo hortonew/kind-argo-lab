@@ -27,3 +27,9 @@ status: # Print status of all components
 reset: # Tear down and rebuild from scratch
   just down
   just up
+
+port-forward: # Background kubectl port-forwards & print all lab URLs
+  ./scripts/port-forward.sh
+
+port-forward-stop: # Stop background port-forwards started by 'just port-forward'
+  ./scripts/port-forward-stop.sh

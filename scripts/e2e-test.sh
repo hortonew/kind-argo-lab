@@ -29,5 +29,7 @@ run_step "rollouts smoke" "${ROOT_DIR}/tests/test-rollouts.sh"
 run_step "workflows smoke" "${ROOT_DIR}/tests/test-workflows.sh"
 run_step "events smoke" "${ROOT_DIR}/tests/test-events.sh"
 run_step "image updater smoke" "${ROOT_DIR}/tests/test-image-updater.sh"
+run_step "notifications smoke" "${ROOT_DIR}/tests/test-notifications.sh"
+run_step "e2e chain smoke" "${ROOT_DIR}/tests/test-e2e-chain.sh"
 
 echo "All E2E checks passed"

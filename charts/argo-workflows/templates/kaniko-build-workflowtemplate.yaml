@@ -1,0 +1,66 @@
+# Real kaniko-based image build, alongside (not replacing) image-build-stub.
+# Single-pod design: init container clones repo into shared emptyDir, then
+# kaniko builds and pushes. Avoids RWO-PVC node-affinity issues in kind.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: kaniko-build
+  namespace: argo
+spec:
+  entrypoint: build
+  arguments:
+    parameters:
+      - name: repo-url
+        value: http://gitea-http.gitea.svc.cluster.local:3000/argo-lab/platform.git
+      - name: revision
+        value: main
+      - name: context-subdir
+        value: apps/demo-app
+      - name: dockerfile
+        value: Dockerfile
+      - name: image
+        value: local-registry:5000/demo-app
+      - name: tag
+        value: kaniko-latest
+  templates:
+    - name: build
+      inputs:
+        parameters:
+          - name: repo-url
+          - name: revision
+          - name: context-subdir
+          - name: dockerfile
+          - name: image
+          - name: tag
+      volumes:
+        - name: workdir
+          emptyDir: {}
+      initContainers:
+        - name: clone
+          image: alpine/git:2.45.2
+          mirrorVolumeMounts: true
+          command: [sh, -c]
+          args:
+            - |
+              set -e
+              git clone --depth 1 --branch {{`{{inputs.parameters.revision}}`}} {{`{{inputs.parameters.repo-url}}`}} /workspace/src
+              ls /workspace/src/{{`{{inputs.parameters.context-subdir}}`}}
+      container:
+        image: gcr.io/kaniko-project/executor:v1.23.2
+        args:
+          - --context=dir:///workspace/src/{{`{{inputs.parameters.context-subdir}}`}}
+          - --dockerfile={{`{{inputs.parameters.dockerfile}}`}}
+          - --destination={{`{{inputs.parameters.image}}`}}:{{`{{inputs.parameters.tag}}`}}
+          - --insecure
+          - --skip-tls-verify
+          - --insecure-pull
+          - --skip-tls-verify-pull
+          - --cache=false
+          - --verbosity=info
+        volumeMounts:
+          - name: workdir
+            mountPath: /workspace
+      outputs:
+        parameters:
+          - name: image-ref
+            value: "{{`{{inputs.parameters.image}}`}}:{{`{{inputs.parameters.tag}}`}}"

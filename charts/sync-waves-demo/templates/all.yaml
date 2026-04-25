@@ -1,0 +1,96 @@
+# Wave -1: pre-sync hook (DB migration style)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: presync-migration
+  namespace: sync-waves-demo
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  ttlSecondsAfterFinished: 120
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[presync] simulating DB migration..."
+              sleep 2
+              echo "[presync] migration complete"
+---
+# Wave 0: ConfigMap that the deployment depends on
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-waves-config
+  namespace: sync-waves-demo
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  greeting: "hello from wave 0"
+---
+# Wave 1: deployment that consumes the ConfigMap
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sync-waves-app
+  namespace: sync-waves-demo
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sync-waves-app
+  template:
+    metadata:
+      labels:
+        app: sync-waves-app
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "greeting: $GREETING"
+              sleep 3600
+          env:
+            - name: GREETING
+              valueFrom:
+                configMapKeyRef:
+                  name: sync-waves-config
+                  key: greeting
+---
+# Wave 2: post-sync hook
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postsync-smoketest
+  namespace: sync-waves-demo
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  ttlSecondsAfterFinished: 120
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: smoketest
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[postsync] sync wave smoke test passed"

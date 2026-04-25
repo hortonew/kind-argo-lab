@@ -8,9 +8,20 @@ syncPolicy:
     prune: true
     selfHeal: true
   syncOptions:
-    - CreateNamespace=true
+  - CreateNamespace=true
+
+# Sync policy variant for apps that ship CRDs — server-side apply avoids
+# "metadata.annotations: Too long" and field-conflict errors on large CRDs.
+syncPolicyServerSide: &syncPolicyServerSide
+  automated:
+    prune: true
+    selfHeal: true
+  syncOptions:
+  - CreateNamespace=true
+  - ServerSideApply=true
 
 apps:
+  # ---- Argo components (in-repo charts) ----
   argo-events:
     path: charts/argo-events
     namespace: argo-events
@@ -18,12 +29,12 @@ apps:
     path: charts/argo-rollouts
     namespace: argo-rollouts
     ignoreDifferences:
-      - group: apiextensions.k8s.io
-        kind: CustomResourceDefinition
-        jqPathExpressions:
-          - .status
-          - .metadata.annotations
-          - .spec.preserveUnknownFields
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jqPathExpressions:
+      - .status
+      - .metadata.annotations
+      - .spec.preserveUnknownFields
   argo-workflows:
     path: charts/argo-workflows
     namespace: argo
@@ -36,3 +47,262 @@ apps:
   demo-app:
     path: charts/demo-app
     namespace: demo
+
+  # ---- Platform prerequisites (external helm charts) ----
+  metrics-server:
+    repoURL: https://kubernetes-sigs.github.io/metrics-server/
+    chart: metrics-server
+    targetRevision: 3.12.2
+    namespace: kube-system
+    helm:
+      values: |
+        args:
+          - --kubelet-insecure-tls
+          - --kubelet-preferred-address-types=InternalIP
+
+  cert-manager:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.16.2
+    namespace: cert-manager
+    syncPolicy: *syncPolicyServerSide
+    helm:
+      values: |
+        crds:
+          enabled: true
+
+  ingress-nginx:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: 4.11.3
+    namespace: ingress-nginx
+    helm:
+      values: |
+        controller:
+          service:
+            type: ClusterIP
+          admissionWebhooks:
+            enabled: false
+          watchIngressWithoutClass: true
+
+  prometheus:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus
+    targetRevision: 25.27.0
+    namespace: monitoring
+    helm:
+      values: |
+        alertmanager:
+          enabled: false
+        prometheus-pushgateway:
+          enabled: false
+        kube-state-metrics:
+          enabled: true
+        prometheus-node-exporter:
+          enabled: false
+        server:
+          persistentVolume:
+            enabled: false
+          retention: 2h
+          extraFlags:
+            - web.enable-lifecycle
+        serverFiles:
+          alerting_rules.yml:
+            groups:
+              - name: argocd
+                rules:
+                  - alert: ArgoCDAppOutOfSync
+                    expr: argocd_app_info{sync_status!="Synced"} > 0
+                    for: 1m
+                    labels:
+                      severity: warning
+                    annotations:
+                      summary: "ArgoCD application {{ $labels.name }} out of sync"
+              - name: rollouts
+                rules:
+                  - alert: RolloutDegraded
+                    expr: rollout_phase{phase="Degraded"} > 0
+                    for: 1m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: "Rollout {{ $labels.name }} degraded"
+              - name: synthetic
+                rules:
+                  - alert: PromSyntheticAlwaysFiring
+                    expr: vector(1)
+                    for: 30s
+                    labels:
+                      severity: info
+                      synthetic: "true"
+                    annotations:
+                      summary: "synthetic alert used by tests/test-notifications.sh"
+          prometheus.yml:
+            alerting:
+              alertmanagers:
+                - static_configs:
+                    - targets: ['alertmanager.monitoring.svc:9093']
+            rule_files:
+              - /etc/config/alerting_rules.yml
+            scrape_configs:
+              - job_name: prometheus
+                static_configs:
+                  - targets: ['localhost:9090']
+              - job_name: kubernetes-pods
+                kubernetes_sd_configs:
+                  - role: pod
+                relabel_configs:
+                  - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                    action: keep
+                    regex: true
+                  - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                    action: replace
+                    target_label: __metrics_path__
+                    regex: (.+)
+                  - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                    action: replace
+                    regex: ([^:]+)(?::\d+)?;(\d+)
+                    replacement: $1:$2
+                    target_label: __address__
+                  - action: labelmap
+                    regex: __meta_kubernetes_pod_label_(.+)
+                  - source_labels: [__meta_kubernetes_namespace]
+                    action: replace
+                    target_label: namespace
+                  - source_labels: [__meta_kubernetes_pod_name]
+                    action: replace
+                    target_label: pod
+              - job_name: argocd-metrics
+                static_configs:
+                  - targets:
+                    - argocd-metrics.argocd.svc:8082
+                    - argocd-server-metrics.argocd.svc:8083
+                    - argocd-repo-server.argocd.svc:8084
+                    - argocd-applicationset-controller.argocd.svc:8080
+              - job_name: argo-rollouts
+                static_configs:
+                  - targets:
+                    - argo-rollouts-metrics.argo-rollouts.svc:8090
+              - job_name: argo-workflows
+                static_configs:
+                  - targets:
+                    - argo-workflows-server.argo.svc:2746
+
+  alertmanager:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: alertmanager
+    targetRevision: 1.13.0
+    namespace: monitoring
+    helm:
+      values: |
+        persistence:
+          enabled: false
+        config:
+          global:
+            resolve_timeout: 5m
+          route:
+            group_by: ['alertname', 'namespace']
+            group_wait: 10s
+            group_interval: 30s
+            repeat_interval: 5m
+            receiver: webhook-logger
+            routes:
+              - matchers:
+                  - alertname="ArgoCDSyncFailed"
+                receiver: argo-events
+                continue: true
+          receivers:
+            - name: webhook-logger
+              webhook_configs:
+                - url: http://webhook-logger.monitoring.svc:8080/alert
+                  send_resolved: true
+            - name: argo-events
+              webhook_configs:
+                - url: http://alertmanager-eventsource-svc.argo-events.svc:12000/alertmanager
+                  send_resolved: true
+
+  grafana:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 8.5.2
+    namespace: monitoring
+    helm:
+      values: |
+        adminUser: admin
+        adminPassword: admin
+        persistence:
+          enabled: false
+        service:
+          type: ClusterIP
+        grafana.ini:
+          auth.anonymous:
+            enabled: true
+            org_role: Viewer
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: Prometheus
+                type: prometheus
+                access: proxy
+                url: http://prometheus-server.monitoring.svc
+                isDefault: true
+              - name: Alertmanager
+                type: alertmanager
+                access: proxy
+                url: http://alertmanager.monitoring.svc:9093
+                jsonData:
+                  implementation: prometheus
+        dashboardProviders:
+          dashboardproviders.yaml:
+            apiVersion: 1
+            providers:
+              - name: default
+                folder: ''
+                type: file
+                disableDeletion: false
+                editable: true
+                options:
+                  path: /var/lib/grafana/dashboards/default
+        dashboards:
+          default:
+            argocd:
+              gnetId: 14584
+              revision: 1
+              datasource: Prometheus
+            argo-rollouts:
+              gnetId: 15386
+              revision: 1
+              datasource: Prometheus
+
+  minio:
+    repoURL: https://charts.min.io
+    chart: minio
+    targetRevision: 5.4.0
+    namespace: minio
+    helm:
+      values: |
+        mode: standalone
+        replicas: 1
+        persistence:
+          enabled: false
+        resources:
+          requests:
+            memory: 256Mi
+        rootUser: minioadmin
+        rootPassword: minioadmin
+        buckets:
+          - name: argo-artifacts
+            policy: none
+            purge: false
+
+  # ---- In-repo charts wiring everything together ----
+  webhook-logger:
+    path: charts/webhook-logger
+    namespace: monitoring
+  applicationsets:
+    path: charts/applicationsets
+    namespace: argocd
+  sync-waves-demo:
+    path: charts/sync-waves-demo
+    namespace: sync-waves-demo

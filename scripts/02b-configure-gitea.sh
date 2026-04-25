@@ -38,13 +38,13 @@ done
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "${WORKDIR}"; kill ${PF_PID} >/dev/null 2>&1 || true' EXIT
 
-cp -R charts envs "${WORKDIR}/"
+cp -R charts envs apps "${WORKDIR}/"
 (
   cd "${WORKDIR}"
   git init -b main
   git config user.name "lab-bot"
   git config user.email "lab-bot@local"
-  git add charts envs
+  git add charts envs apps
   git commit -m "bootstrap platform repo"
   git remote add origin "${GITEA_AUTH_URL}/${ORG}/platform.git"
   GIT_TERMINAL_PROMPT=0 git push -u origin main --force

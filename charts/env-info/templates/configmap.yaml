@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-info
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: env-info
+    app.kubernetes.io/managed-by: applicationset
+    env: {{ .Values.envName | quote }}
+data:
+  env: {{ .Values.envName | quote }}
+  description: {{ .Values.description | quote }}

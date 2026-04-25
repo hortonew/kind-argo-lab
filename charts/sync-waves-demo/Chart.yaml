@@ -1,0 +1,5 @@
+apiVersion: v2
+name: sync-waves-demo
+description: Demonstrates ArgoCD sync-waves (-1, 0, 1) and a PreSync hook Job
+type: application
+version: 0.1.0

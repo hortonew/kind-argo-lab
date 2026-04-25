@@ -1,0 +1,37 @@
+# Demo ApplicationSet: git generator scans envs/*/env-info.yaml and creates one
+# Application per match, deploying charts/env-info with that env's values.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: env-info
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - git:
+        repoURL: {{ .Values.repoURL | quote }}
+        revision: {{ .Values.targetRevision | quote }}
+        files:
+          - path: "envs/*/env-info.yaml"
+  template:
+    metadata:
+      name: 'env-info-{{ "{{" }} .envName {{ "}}" }}'
+    spec:
+      project: default
+      source:
+        repoURL: {{ .Values.repoURL | quote }}
+        targetRevision: {{ .Values.targetRevision | quote }}
+        path: charts/env-info
+        helm:
+          values: |
+            envName: '{{ "{{" }} .envName {{ "}}" }}'
+            description: '{{ "{{" }} .description {{ "}}" }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

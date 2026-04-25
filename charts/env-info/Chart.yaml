@@ -1,0 +1,5 @@
+apiVersion: v2
+name: env-info
+description: Tiny demo app — deploys a ConfigMap with env metadata. Used by the ApplicationSet generator demo.
+type: application
+version: 0.1.0

@@ -18,10 +18,19 @@ spec:
   source:
     repoURL: {{ default $.Values.repoURL $cfg.repoURL }}
     targetRevision: {{ default $.Values.targetRevision $cfg.targetRevision }}
+    {{- if $cfg.chart }}
+    chart: {{ $cfg.chart }}
+    {{- else }}
     path: {{ $cfg.path }}
+    {{- end }}
+    {{- with $cfg.helm }}
+    helm:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ $cfg.namespace }}
   syncPolicy:
     {{- toYaml (default $.Values.syncPolicy $cfg.syncPolicy) | nindent 4 }}
 {{- end }}
+

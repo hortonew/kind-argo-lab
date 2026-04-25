@@ -21,6 +21,12 @@ forwards=(
   "argo-workflows|argo|svc/argo-workflows-server|2746:2746"
   "argo-rollouts|argo-rollouts|svc/argo-rollouts-dashboard|3100:3100"
   "gitea|gitea|svc/gitea-http|3000:3000"
+  "prometheus|monitoring|svc/prometheus-server|9090:80"
+  "alertmanager|monitoring|svc/alertmanager|9093:9093"
+  "grafana|monitoring|svc/grafana|3001:80"
+  "minio-console|minio|svc/minio-console|9001:9001"
+  "minio-api|minio|svc/minio|9000:9000"
+  "webhook-logger|monitoring|svc/webhook-logger|8081:8080"
 )
 
 for entry in "${forwards[@]}"; do
@@ -46,6 +52,12 @@ Lab URLs (port-forwards backgrounded; logs: $LOG_FILE)
   Gitea             http://localhost:3000          user: admin   pass: adminpass
   Gitea (NodePort)  http://localhost:30000         (also exposed via kind extraPortMappings)
   Local registry    http://localhost:5001/v2/_catalog
+  Prometheus        http://localhost:9090
+  Alertmanager      http://localhost:9093
+  Grafana           http://localhost:3001          user: admin   pass: admin   (anonymous viewer)
+  MinIO console     http://localhost:9001          user: minioadmin   pass: minioadmin
+  MinIO API (S3)    http://localhost:9000
+  Webhook logger    http://localhost:8081          (alert sink; tail logs: kubectl -n monitoring logs deploy/webhook-logger -f)
 
 Stop with: just port-forward-stop
 EOF

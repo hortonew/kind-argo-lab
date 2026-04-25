@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-logger
+  namespace: monitoring
+  labels:
+    app: webhook-logger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-logger
+  template:
+    metadata:
+      labels:
+        app: webhook-logger
+    spec:
+      containers:
+        - name: echo
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            - name: HTTP_PORT
+              value: "8080"
+            - name: LOG_WITHOUT_NEWLINE
+              value: "true"
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-logger
+  namespace: monitoring
+  labels:
+    app: webhook-logger
+spec:
+  type: ClusterIP
+  selector:
+    app: webhook-logger
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http

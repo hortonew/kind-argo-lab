@@ -1,0 +1,5 @@
+image:
+  repository: mendhak/http-https-echo
+  tag: "34"
+service:
+  port: 8080

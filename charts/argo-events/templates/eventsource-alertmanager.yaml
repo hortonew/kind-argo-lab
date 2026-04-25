@@ -1,0 +1,54 @@
+# Webhook EventSource that receives Alertmanager notifications
+# and a Sensor that fires a remediation Workflow on each alert.
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: alertmanager
+  namespace: argo-events
+spec:
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+  webhook:
+    alertmanager:
+      port: "12000"
+      endpoint: /alertmanager
+      method: POST
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: alertmanager-remediation
+  namespace: argo-events
+spec:
+  dependencies:
+    - name: am-alert
+      eventSourceName: alertmanager
+      eventName: alertmanager
+  template:
+    serviceAccountName: operate-workflow-sa
+  triggers:
+    - template:
+        name: remediation-workflow
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: alertmanager-remediation-
+                namespace: argo
+              spec:
+                entrypoint: log-alert
+                templates:
+                  - name: log-alert
+                    container:
+                      image: busybox:1.36
+                      command: [sh, -c]
+                      args:
+                        - |
+                          echo "[remediation] alert received from alertmanager"
+                          echo "in a real system this would call argo rollouts abort, scale, etc."
+                          sleep 1

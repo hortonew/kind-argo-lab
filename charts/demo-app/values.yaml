@@ -15,3 +15,7 @@ rollout:
   enabled: true
   replicas: 2
   canaryWeight: 20
+
+analysis:
+  enabled: true
+  replicas: 1

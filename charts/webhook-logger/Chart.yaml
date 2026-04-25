@@ -1,0 +1,5 @@
+apiVersion: v2
+name: webhook-logger
+description: HTTP echo sink for Alertmanager webhooks (logs request bodies to stdout)
+type: application
+version: 0.1.0

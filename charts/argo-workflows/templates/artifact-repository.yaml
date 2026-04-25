@@ -1,0 +1,38 @@
+# Default artifact repository pointing at the in-cluster MinIO bucket
+# `argo-artifacts`. Selected via the annotation:
+#   workflows.argoproj.io/default-artifact-repository: default-v1
+# on this ConfigMap. Per-Workflow opt-in is also possible with
+# `spec.artifactRepositoryRef.configMap` / `key`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: artifact-repositories
+  namespace: argo
+  annotations:
+    workflows.argoproj.io/default-artifact-repository: default-v1
+data:
+  default-v1: |
+    # archiveLogs: false → don't auto-upload `main.log` for every workflow.
+    # Workflows that want their reports/traces in MinIO declare them
+    # explicitly via `outputs.artifacts` (see charts/playwright-e2e-demo).
+    archiveLogs: false
+    s3:
+      endpoint: minio.minio.svc.cluster.local:9000
+      bucket: argo-artifacts
+      insecure: true
+      accessKeySecret:
+        name: argo-artifacts-creds
+        key: accesskey
+      secretKeySecret:
+        name: argo-artifacts-creds
+        key: secretkey
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argo-artifacts-creds
+  namespace: argo
+type: Opaque
+stringData:
+  accesskey: minioadmin
+  secretkey: minioadmin

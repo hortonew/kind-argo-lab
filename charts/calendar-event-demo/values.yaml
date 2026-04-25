@@ -1,0 +1,3 @@
+# Cron expression the calendar EventSource fires on. Default: every minute,
+# fast enough for the test suite to observe a trigger.
+schedule: "* * * * *"

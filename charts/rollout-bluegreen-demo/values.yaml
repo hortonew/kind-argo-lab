@@ -1,0 +1,13 @@
+# Bump image.tag to roll a new ReplicaSet into the preview slot.
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+replicas: 2
+
+# autoPromotionEnabled=false → preview ReplicaSet stays live until you run:
+#   kubectl argo rollouts promote bluegreen-app -n bluegreen-demo
+autoPromotionEnabled: false
+
+# After a successful promotion, scale-down of the old (blue) ReplicaSet
+# is delayed by this many seconds so you can still hit the old version.
+scaleDownDelaySeconds: 30

@@ -1,0 +1,65 @@
+# Argo Rollouts blueGreen demo:
+#   - activeService receives 100% of traffic at all times
+#   - previewService points at the new ReplicaSet during cutover
+#   - autoPromotionEnabled=false → manual promotion via:
+#       kubectl argo rollouts promote bluegreen-app -n bluegreen-demo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bluegreen-active
+  namespace: bluegreen-demo
+spec:
+  selector:
+    app: bluegreen-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bluegreen-preview
+  namespace: bluegreen-demo
+spec:
+  selector:
+    app: bluegreen-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: bluegreen-app
+  namespace: bluegreen-demo
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: bluegreen-app
+  strategy:
+    blueGreen:
+      activeService: bluegreen-active
+      previewService: bluegreen-preview
+      autoPromotionEnabled: {{ .Values.autoPromotionEnabled }}
+      scaleDownDelaySeconds: {{ .Values.scaleDownDelaySeconds }}
+  template:
+    metadata:
+      labels:
+        app: bluegreen-app
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5

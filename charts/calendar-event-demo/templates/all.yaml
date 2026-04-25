@@ -1,0 +1,50 @@
+# Calendar EventSource → Sensor → hello-world Workflow.
+# Demonstrates Argo Events without any external trigger source: the
+# EventSource fires on the configured cron schedule and the Sensor creates
+# a Workflow each time.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: calendar
+  namespace: argo-events
+spec:
+  calendar:
+    every-minute:
+      schedule: {{ .Values.schedule | quote }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: calendar-workflow-sensor
+  namespace: argo-events
+spec:
+  dependencies:
+    - name: tick
+      eventSourceName: calendar
+      eventName: every-minute
+  template:
+    serviceAccountName: operate-workflow-sa
+  triggers:
+    - template:
+        name: trigger-hello
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: calendar-hello-
+                namespace: argo
+                labels:
+                  triggered-by: calendar-event-demo
+              spec:
+                entrypoint: hello
+                templates:
+                  - name: hello
+                    container:
+                      image: alpine:3.20
+                      command: [sh, -c]
+                      args:
+                        - 'echo "tick at $(date -u +%FT%TZ)"'

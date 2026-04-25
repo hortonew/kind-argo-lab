@@ -1,0 +1,5 @@
+apiVersion: v2
+name: calendar-event-demo
+description: Argo Events calendar EventSource + Sensor that triggers a hello-world Workflow on a schedule
+type: application
+version: 0.1.0

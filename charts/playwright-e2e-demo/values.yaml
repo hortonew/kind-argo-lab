@@ -1,0 +1,7 @@
+# Target URL the Playwright spec hits inside the cluster.
+# Defaults to the sync-waves-demo app already deployed by app-of-apps.
+target:
+  url: http://sync-waves-app.sync-waves-demo.svc.cluster.local
+
+playwright:
+  image: mcr.microsoft.com/playwright:v1.47.0-jammy

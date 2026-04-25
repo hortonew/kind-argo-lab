@@ -293,7 +293,10 @@ apps:
         rootPassword: minioadmin
         buckets:
           - name: argo-artifacts
-            policy: none
+            # `download` = anonymous GET on objects (no listing). Lets you
+            # open Playwright HTML reports directly at:
+            #   http://localhost:9000/argo-artifacts/<wf>/<wf>/html-report/index.html
+            policy: download
             purge: false
 
   # ---- In-repo charts wiring everything together ----
@@ -306,3 +309,15 @@ apps:
   sync-waves-demo:
     path: charts/sync-waves-demo
     namespace: sync-waves-demo
+  rollout-bluegreen-demo:
+    path: charts/rollout-bluegreen-demo
+    namespace: bluegreen-demo
+  rollout-analysis-demo:
+    path: charts/rollout-analysis-demo
+    namespace: rollout-analysis-demo
+  playwright-e2e-demo:
+    path: charts/playwright-e2e-demo
+    namespace: argo
+  calendar-event-demo:
+    path: charts/calendar-event-demo
+    namespace: argo-events

@@ -1,0 +1,108 @@
+# Playwright e2e WorkflowTemplate.
+# Submit ad-hoc with:
+#   argo submit -n argo --from workflowtemplate/playwright-e2e
+# The template produces an HTML report + trace bundle as outputs.artifacts;
+# they are uploaded to the default artifact repository (MinIO bucket
+# `argo-artifacts`) configured by charts/argo-workflows.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: playwright-e2e
+  namespace: argo
+spec:
+  entrypoint: run
+  arguments:
+    parameters:
+      - name: target-url
+        value: {{ .Values.target.url | quote }}
+  templates:
+    - name: run
+      inputs:
+        parameters:
+          - name: target-url
+      outputs:
+        artifacts:
+          # Auto-uploaded to MinIO via the default artifactRepositoryRef
+          # configured in charts/argo-workflows/templates/artifact-repository.yaml.
+          # `archive: none` uploads each file individually so the report's
+          # own index.html is browsable directly at:
+          #   http://localhost:9000/argo-artifacts/<wf>/<wf>/html-report/index.html
+          # (the MinIO bucket is set to `policy: download` for anonymous GET).
+          - name: html-report
+            path: /work/playwright-report
+            archive:
+              none: {}
+          - name: traces
+            path: /work/test-results
+            archive:
+              tar:
+                compressionLevel: 6
+            optional: true
+      container:
+        image: {{ .Values.playwright.image }}
+        workingDir: /work
+        env:
+          - name: TARGET_URL
+            value: "{{`{{inputs.parameters.target-url}}`}}"
+        command: [bash, -c]
+        args:
+          - |
+            set -euo pipefail
+            mkdir -p /work && cd /work
+
+            # Minimal Playwright project — generated inline so the workflow
+            # is self-contained (no git clone, no extra ConfigMap mount).
+            cat > package.json <<'JSON'
+            {
+              "name": "playwright-e2e",
+              "version": "0.0.1",
+              "private": true,
+              "devDependencies": {
+                "@playwright/test": "1.47.0"
+              }
+            }
+            JSON
+
+            cat > playwright.config.ts <<'TS'
+            import { defineConfig } from '@playwright/test';
+            export default defineConfig({
+              testDir: './tests',
+              retries: 0,
+              reporter: [['html', { open: 'never' }]],
+              use: {
+                baseURL: process.env.TARGET_URL,
+                trace: 'on',
+              },
+            });
+            TS
+
+            mkdir -p tests
+            cat > tests/smoke.spec.ts <<'TS'
+            import { test, expect } from '@playwright/test';
+
+            test('home page returns 200 and contains body', async ({ request, page }) => {
+              const res = await request.get('/');
+              expect(res.status()).toBe(200);
+              await page.goto('/');
+              await expect(page.locator('body')).toBeVisible();
+            });
+            TS
+
+            # Use the prebuilt browsers in the playwright image; install only
+            # the test runner package itself.
+            npm install --no-audit --no-fund --no-progress
+            set +e
+            npx playwright test
+            rc=$?
+            set -e
+
+            # Print the URL where the HTML report will be reachable once
+            # Argo finishes uploading artifacts to MinIO. Visible at the
+            # bottom of the Workflow's main container logs.
+            echo
+            echo "================================================================"
+            echo "Playwright HTML report (after artifacts upload):"
+            echo "  http://localhost:9000/argo-artifacts/{{`{{workflow.name}}`}}/{{`{{workflow.name}}`}}/html-report/index.html"
+            echo "================================================================"
+            exit $rc

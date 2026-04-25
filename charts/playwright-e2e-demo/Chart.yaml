@@ -1,0 +1,5 @@
+apiVersion: v2
+name: playwright-e2e-demo
+description: Argo WorkflowTemplate that runs Playwright e2e tests and uploads HTML+trace artifacts to MinIO
+type: application
+version: 0.1.0

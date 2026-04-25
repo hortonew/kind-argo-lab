@@ -1,0 +1,7 @@
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+replicas: 2
+
+# In-cluster Prometheus URL used by the AnalysisTemplate.
+prometheusURL: http://prometheus-server.monitoring.svc.cluster.local

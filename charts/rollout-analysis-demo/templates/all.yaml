@@ -1,0 +1,79 @@
+# Canary Rollout gated on a Prometheus AnalysisTemplate.
+# The metric query (vector(1) >= 0.95) is intentionally always-true so the lab
+# happy path completes; flip the successCondition to demo automatic rollback.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: rollout-analysis-demo
+spec:
+  args:
+    - name: service
+  metrics:
+    - name: success-rate
+      interval: 10s
+      count: 3
+      # Result must be >= 0.95 for the analysis to succeed.
+      successCondition: result[0] >= 0.95
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: {{ .Values.prometheusURL }}
+          # vector(1) gives a stable always-1 series — proves the prom path
+          # works without depending on app-specific request metrics.
+          query: vector(1)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analysis-app
+  namespace: rollout-analysis-demo
+spec:
+  selector:
+    app: analysis-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: analysis-app
+  namespace: rollout-analysis-demo
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: analysis-app
+  strategy:
+    canary:
+      steps:
+        - setWeight: 25
+        - pause: { duration: 5s }
+        - analysis:
+            templates:
+              - templateName: success-rate
+            args:
+              - name: service
+                value: analysis-app
+        - setWeight: 75
+        - pause: { duration: 5s }
+  template:
+    metadata:
+      labels:
+        app: analysis-app
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5

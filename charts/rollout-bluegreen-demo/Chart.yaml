@@ -1,0 +1,5 @@
+apiVersion: v2
+name: rollout-bluegreen-demo
+description: Argo Rollouts blueGreen strategy demo (activeService + previewService, manual promotion)
+type: application
+version: 0.1.0

@@ -1,0 +1,11 @@
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+
+# Short window so the demo + test finish quickly. Bump to 5m for a more
+# realistic run.
+duration: 30s
+
+# In-cluster Prometheus URL used by the inline analysis. Same address as
+# rollout-analysis-demo so we share the existing scrape stack.
+prometheusURL: http://prometheus-server.monitoring.svc.cluster.local

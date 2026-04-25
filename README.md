@@ -117,6 +117,21 @@ flowchart LR
   R -->|setWeight 100| STABLE[Stable replicas v2]
 ```
 
+### Experiment — baseline + candidate side-by-side
+
+[charts/rollout-experiment-demo](charts/rollout-experiment-demo) · [tests/test-rollout-experiment.sh](tests/test-rollout-experiment.sh)
+
+```mermaid
+flowchart LR
+  E[Experiment side-by-side<br/>duration: 30s] --> RS1[ReplicaSet baseline]
+  E --> RS2[ReplicaSet candidate]
+  E --> AR[Inline AnalysisRun]
+  AR -->|query| P[Prometheus in-cluster]
+  P -->|metric ≥ 0.95| AR
+  AR -->|Successful| DONE[Experiment Successful]
+  DONE --> SCALE0[both ReplicaSets scale to 0]
+```
+
 ### Playwright e2e with browseable MinIO artifacts
 
 [charts/playwright-e2e-demo](charts/playwright-e2e-demo) · [tests/test-playwright-e2e.sh](tests/test-playwright-e2e.sh)

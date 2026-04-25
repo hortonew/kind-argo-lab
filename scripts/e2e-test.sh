@@ -34,6 +34,7 @@ run_step "e2e chain smoke" "${ROOT_DIR}/tests/test-e2e-chain.sh"
 run_step "deploy chain smoke" "${ROOT_DIR}/tests/test-deploy-chain.sh"
 run_step "rollout bluegreen demo" "${ROOT_DIR}/tests/test-rollout-bluegreen.sh"
 run_step "rollout analysis demo" "${ROOT_DIR}/tests/test-rollout-analysis.sh"
+run_step "rollout experiment demo" "${ROOT_DIR}/tests/test-rollout-experiment.sh"
 run_step "calendar event demo" "${ROOT_DIR}/tests/test-calendar-event.sh"
 run_step "playwright e2e demo" "${ROOT_DIR}/tests/test-playwright-e2e.sh"
 

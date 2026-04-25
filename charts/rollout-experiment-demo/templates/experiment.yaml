@@ -1,0 +1,84 @@
+# Standalone Argo Rollouts Experiment.
+#
+# Spins up `baseline` and `candidate` ReplicaSets side-by-side for
+# `.Values.duration`, gated by an inline AnalysisRun against the
+# in-cluster Prometheus. After the duration the Experiment terminates
+# and the ReplicaSets scale to zero — Argo Rollouts handles the cleanup.
+#
+# Re-run by deleting the resource:
+#   kubectl -n rollout-experiment-demo delete experiment side-by-side
+# (Argo CD will recreate it on the next sync.)
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: experiment-success-rate
+  namespace: rollout-experiment-demo
+spec:
+  metrics:
+    - name: success-rate
+      interval: 10s
+      count: 2
+      successCondition: result[0] >= 0.95
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: {{ .Values.prometheusURL }}
+          # Always-true series; flip to `vector(0)` to demo a Failed run.
+          query: vector(1)
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Experiment
+metadata:
+  name: side-by-side
+  namespace: rollout-experiment-demo
+spec:
+  duration: {{ .Values.duration }}
+  templates:
+    - name: baseline
+      replicas: 1
+      selector:
+        matchLabels:
+          app: experiment-app
+          variant: baseline
+      template:
+        metadata:
+          labels:
+            app: experiment-app
+            variant: baseline
+        spec:
+          containers:
+            - name: nginx
+              image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: IfNotPresent
+              ports:
+                - containerPort: 80
+              readinessProbe:
+                httpGet: { path: /, port: 80 }
+                initialDelaySeconds: 2
+                periodSeconds: 5
+    - name: candidate
+      replicas: 1
+      selector:
+        matchLabels:
+          app: experiment-app
+          variant: candidate
+      template:
+        metadata:
+          labels:
+            app: experiment-app
+            variant: candidate
+        spec:
+          containers:
+            - name: nginx
+              image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: IfNotPresent
+              ports:
+                - containerPort: 80
+              readinessProbe:
+                httpGet: { path: /, port: 80 }
+                initialDelaySeconds: 2
+                periodSeconds: 5
+  analyses:
+    - name: success-rate
+      templateName: experiment-success-rate

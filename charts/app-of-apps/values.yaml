@@ -315,6 +315,9 @@ apps:
   rollout-analysis-demo:
     path: charts/rollout-analysis-demo
     namespace: rollout-analysis-demo
+  rollout-experiment-demo:
+    path: charts/rollout-experiment-demo
+    namespace: rollout-experiment-demo
   playwright-e2e-demo:
     path: charts/playwright-e2e-demo
     namespace: argo

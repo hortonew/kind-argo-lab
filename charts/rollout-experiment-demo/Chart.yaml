@@ -1,0 +1,5 @@
+apiVersion: v2
+name: rollout-experiment-demo
+description: Argo Rollouts Experiment running baseline + candidate ReplicaSets side-by-side, gated by an inline AnalysisRun
+type: application
+version: 0.1.0

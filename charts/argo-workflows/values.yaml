@@ -2,16 +2,18 @@ argo-workflows:
   namespaceOverride: argo
   controller:
     workflowNamespaces:
-      - argo
-    # Keep only the most recent run per outcome bucket; older Workflows are
+    - argo
+    # Keep recent runs per outcome bucket; older Workflows are
     # garbage-collected by the controller regardless of their TTL.
+    # Bumped from 1 → 20 so concurrent demos (calendar tick every 30s + ad-hoc
+    # tests) don't evict each other before assertions run.
     retentionPolicy:
-      completed: 1
-      failed: 1
-      errored: 1
+      completed: 20
+      failed: 20
+      errored: 20
   server:
     authModes:
-      - server
+    - server
   workflow:
     serviceAccount:
       create: true

@@ -27,6 +27,7 @@ forwards=(
   "minio-console|minio|svc/minio-console|9001:9001"
   "minio-api|minio|svc/minio|9000:9000"
   "webhook-logger|monitoring|svc/webhook-logger|8081:8080"
+  "mattermost|mattermost|svc/mattermost|8065:8065"
 )
 
 for entry in "${forwards[@]}"; do
@@ -58,6 +59,7 @@ Lab URLs (port-forwards backgrounded; logs: $LOG_FILE)
   MinIO console     http://localhost:9001          user: minioadmin   pass: minioadmin
   MinIO API (S3)    http://localhost:9000
   Webhook logger    http://localhost:8081          (alert sink; tail logs: kubectl -n monitoring logs deploy/webhook-logger -f)
+  Mattermost        http://localhost:8065          user: admin   pass: lab-admin
 
 Stop with: just port-forward-stop
 EOF

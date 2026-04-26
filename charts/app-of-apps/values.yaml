@@ -318,6 +318,12 @@ apps:
   rollout-experiment-demo:
     path: charts/rollout-experiment-demo
     namespace: rollout-experiment-demo
+  mattermost:
+    path: charts/mattermost
+    namespace: mattermost
+  mattermost-thread-demo:
+    path: charts/mattermost-thread-demo
+    namespace: argo
   playwright-e2e-demo:
     path: charts/playwright-e2e-demo
     namespace: argo

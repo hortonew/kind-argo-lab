@@ -8,9 +8,9 @@ GITEA_REPO_URL="http://gitea-http.gitea.svc.cluster.local:3000/argo-lab/platform
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply --server-side --force-conflicts -n "${NAMESPACE}" -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-kubectl -n "${NAMESPACE}" rollout status deploy/argocd-server --timeout=120s
-kubectl -n "${NAMESPACE}" rollout status deploy/argocd-repo-server --timeout=120s
-kubectl -n "${NAMESPACE}" rollout status sts/argocd-application-controller --timeout=120s
+kubectl -n "${NAMESPACE}" rollout status deploy/argocd-server --timeout=300s
+kubectl -n "${NAMESPACE}" rollout status deploy/argocd-repo-server --timeout=300s
+kubectl -n "${NAMESPACE}" rollout status sts/argocd-application-controller --timeout=300s
 
 kubectl -n "${NAMESPACE}" patch configmap argocd-cm --type merge -p '{"data":{"resource.customizations.health.argoproj.io_Rollout":"hs = {}\nif obj.status ~= nil then\n  if obj.status.phase == \"Healthy\" then\n    hs.status = \"Healthy\"\n    hs.message = \"Rollout is healthy\"\n    return hs\n  end\nend\nhs.status = \"Progressing\"\nhs.message = \"Waiting for rollout to become healthy\"\nreturn hs"}}'
 

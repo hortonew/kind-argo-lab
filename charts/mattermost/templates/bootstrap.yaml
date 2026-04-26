@@ -1,0 +1,154 @@
+# Bootstrap Job: idempotent. Waits for Mattermost API, creates the sysadmin
+# user (first user → sysadmin), logs in to capture a session token, creates
+# the team + channel, then writes a Secret in the workflows namespace.
+#
+# Re-run by deleting the Job; the controller-side Helm hook annotation makes
+# Argo CD recreate it on every sync if needed.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mattermost-bootstrap
+  namespace: mattermost
+---
+# RBAC: write the creds Secret into the workflows namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mattermost-bootstrap
+  namespace: {{ .Values.credsNamespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mattermost-bootstrap
+  namespace: {{ .Values.credsNamespace }}
+subjects:
+  - kind: ServiceAccount
+    name: mattermost-bootstrap
+    namespace: mattermost
+roleRef:
+  kind: Role
+  name: mattermost-bootstrap
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mattermost-bootstrap
+  namespace: mattermost
+  annotations:
+    # Run after the Deployment is in place. Argo CD applies PostSync hooks
+    # only after the rest of the manifests are Healthy, so the Mattermost
+    # pod is at least scheduled by the time this Job starts.
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      serviceAccountName: mattermost-bootstrap
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: alpine/k8s:1.30.0
+          env:
+            - name: MM_URL
+              value: http://mattermost.mattermost.svc.cluster.local:8065
+            - name: ADMIN_EMAIL
+              value: {{ .Values.admin.email | quote }}
+            - name: ADMIN_USERNAME
+              value: {{ .Values.admin.username | quote }}
+            - name: ADMIN_PASSWORD
+              value: {{ .Values.admin.password | quote }}
+            - name: TEAM_NAME
+              value: {{ .Values.team.name | quote }}
+            - name: TEAM_DISPLAY
+              value: {{ .Values.team.displayName | quote }}
+            - name: CHANNEL_NAME
+              value: {{ .Values.channel.name | quote }}
+            - name: CHANNEL_DISPLAY
+              value: {{ .Values.channel.displayName | quote }}
+            - name: CREDS_NS
+              value: {{ .Values.credsNamespace | quote }}
+          command: [sh, -c]
+          args:
+            - |
+              set -eu
+
+              echo "[mm] waiting for Mattermost API at $MM_URL"
+              for i in $(seq 1 120); do
+                if curl -fsS "$MM_URL/api/v4/system/ping" >/dev/null 2>&1; then
+                  echo "[mm]   ready after ${i} attempts"
+                  break
+                fi
+                sleep 5
+              done
+
+              echo "[mm] creating sysadmin user (idempotent)"
+              curl -sS -X POST "$MM_URL/api/v4/users" \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc --arg e "$ADMIN_EMAIL" --arg u "$ADMIN_USERNAME" --arg p "$ADMIN_PASSWORD" \
+                       '{email:$e,username:$u,password:$p}')" \
+                -o /tmp/create.json -w '  http=%{http_code}\n' || true
+
+              echo "[mm] login as admin"
+              hdrs=$(mktemp)
+              curl -sS -D "$hdrs" -X POST "$MM_URL/api/v4/users/login" \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc --arg u "$ADMIN_USERNAME" --arg p "$ADMIN_PASSWORD" \
+                       '{login_id:$u,password:$p}')" \
+                -o /tmp/login.json
+              TOKEN=$(grep -i '^token:' "$hdrs" | awk '{print $2}' | tr -d '\r\n')
+              if [ -z "$TOKEN" ]; then
+                echo "[mm] FAIL: no session token after login"
+                cat "$hdrs"; cat /tmp/login.json
+                exit 1
+              fi
+
+              auth() { curl -sS -H "Authorization: Bearer $TOKEN" "$@"; }
+
+              USER_ID=$(auth "$MM_URL/api/v4/users/username/$ADMIN_USERNAME" | jq -r .id)
+              echo "[mm] user_id=$USER_ID"
+
+              echo "[mm] creating team (idempotent)"
+              auth -X POST "$MM_URL/api/v4/teams" \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc --arg n "$TEAM_NAME" --arg d "$TEAM_DISPLAY" \
+                       '{name:$n,display_name:$d,type:"O"}')" >/dev/null || true
+              TEAM_ID=$(auth "$MM_URL/api/v4/teams/name/$TEAM_NAME" | jq -r .id)
+              echo "[mm] team_id=$TEAM_ID"
+
+              echo "[mm] adding admin to team (idempotent)"
+              auth -X POST "$MM_URL/api/v4/teams/$TEAM_ID/members" \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc --arg t "$TEAM_ID" --arg u "$USER_ID" \
+                       '{team_id:$t,user_id:$u}')" >/dev/null || true
+
+              echo "[mm] creating channel (idempotent)"
+              auth -X POST "$MM_URL/api/v4/channels" \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc --arg t "$TEAM_ID" --arg n "$CHANNEL_NAME" --arg d "$CHANNEL_DISPLAY" \
+                       '{team_id:$t,name:$n,display_name:$d,type:"O"}')" >/dev/null || true
+              CHANNEL_ID=$(auth "$MM_URL/api/v4/teams/$TEAM_ID/channels/name/$CHANNEL_NAME" | jq -r .id)
+              echo "[mm] channel_id=$CHANNEL_ID"
+
+              echo "[mm] adding admin to channel (idempotent)"
+              auth -X POST "$MM_URL/api/v4/channels/$CHANNEL_ID/members" \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc --arg u "$USER_ID" '{user_id:$u}')" >/dev/null || true
+
+              echo "[mm] writing mattermost-creds Secret to namespace $CREDS_NS"
+              kubectl -n "$CREDS_NS" create secret generic mattermost-creds \
+                --from-literal=url="$MM_URL" \
+                --from-literal=token="$TOKEN" \
+                --from-literal=channel_id="$CHANNEL_ID" \
+                --from-literal=team_id="$TEAM_ID" \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+              echo "[mm] bootstrap complete"

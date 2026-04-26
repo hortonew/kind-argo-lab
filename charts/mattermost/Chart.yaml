@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mattermost
+description: Self-hosted Mattermost (preview image, in-memory) + bootstrap Job that creates a team, channel, and writes a session token Secret consumable by Argo Workflows.
+type: application
+version: 0.1.0

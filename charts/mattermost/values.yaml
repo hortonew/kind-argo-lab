@@ -1,0 +1,21 @@
+# Multi-arch image (works on amd64 and arm64). Pairs with an ephemeral
+# Postgres sidecar defined in templates/deployment.yaml.
+image: mattermost/mattermost-team-edition:release-9.11
+
+admin:
+  email: admin@lab.local
+  username: admin
+  # Password policy is relaxed via env vars on the deployment so this works.
+  password: admin
+
+team:
+  name: lab
+  displayName: Lab
+
+channel:
+  name: workflow-status
+  displayName: Workflow Status
+
+# Namespace where the bootstrap Job writes the `mattermost-creds` Secret.
+# Argo Workflows live in `argo`, so credentials land there for the demo.
+credsNamespace: argo

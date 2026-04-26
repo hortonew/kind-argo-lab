@@ -1,0 +1,120 @@
+# Mattermost threaded notification demo.
+#
+# Submit ad-hoc with:
+#   argo submit -n argo --from workflowtemplate/mattermost-thread-demo
+#
+# Flow:
+#   start  → POST parent message → output `root_id`
+#   step-1 → POST reply with root_id (build complete)
+#   step-2 → POST reply with root_id (tests passing)
+#   done   → POST reply with root_id (deploy succeeded)
+#
+# Result: a single Mattermost thread with the parent + 3 in-thread replies.
+#
+# Reads URL/token/channel from the `mattermost-creds` Secret created by
+# `charts/mattermost`.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: mattermost-thread-demo
+  namespace: argo
+spec:
+  entrypoint: thread
+  templates:
+    - name: thread
+      dag:
+        tasks:
+          - name: start
+            template: post-parent
+            arguments:
+              parameters:
+                - name: msg
+                  value: ":rocket: Workflow {{`{{workflow.name}}`}} starting"
+          - name: step-1
+            depends: start
+            template: post-reply
+            arguments:
+              parameters:
+                - name: root_id
+                  value: "{{`{{tasks.start.outputs.parameters.root_id}}`}}"
+                - name: msg
+                  value: ":hourglass_flowing_sand: Step 1: build complete"
+          - name: step-2
+            depends: step-1
+            template: post-reply
+            arguments:
+              parameters:
+                - name: root_id
+                  value: "{{`{{tasks.start.outputs.parameters.root_id}}`}}"
+                - name: msg
+                  value: ":test_tube: Step 2: tests passing"
+          - name: done
+            depends: step-2
+            template: post-reply
+            arguments:
+              parameters:
+                - name: root_id
+                  value: "{{`{{tasks.start.outputs.parameters.root_id}}`}}"
+                - name: msg
+                  value: ":white_check_mark: Step 3: deployed — all green"
+
+    - name: post-parent
+      inputs:
+        parameters:
+          - name: msg
+      outputs:
+        parameters:
+          - name: root_id
+            valueFrom:
+              path: /tmp/root_id
+      script:
+        image: {{ .Values.image }}
+        command: [sh]
+        env:
+          - name: MM_URL
+            valueFrom: { secretKeyRef: { name: mattermost-creds, key: url } }
+          - name: MM_TOKEN
+            valueFrom: { secretKeyRef: { name: mattermost-creds, key: token } }
+          - name: MM_CHANNEL
+            valueFrom: { secretKeyRef: { name: mattermost-creds, key: channel_id } }
+          - name: MSG
+            value: "{{`{{inputs.parameters.msg}}`}}"
+        source: |
+          set -eu
+          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" \
+                  '{channel_id:$c,message:$m}')
+          resp=$(curl -fsS -X POST "$MM_URL/api/v4/posts" \
+            -H "Authorization: Bearer $MM_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$body")
+          echo "$resp" | jq -r .id > /tmp/root_id
+          echo "[mm] parent post id=$(cat /tmp/root_id)"
+
+    - name: post-reply
+      inputs:
+        parameters:
+          - name: root_id
+          - name: msg
+      script:
+        image: {{ .Values.image }}
+        command: [sh]
+        env:
+          - name: MM_URL
+            valueFrom: { secretKeyRef: { name: mattermost-creds, key: url } }
+          - name: MM_TOKEN
+            valueFrom: { secretKeyRef: { name: mattermost-creds, key: token } }
+          - name: MM_CHANNEL
+            valueFrom: { secretKeyRef: { name: mattermost-creds, key: channel_id } }
+          - name: ROOT
+            value: "{{`{{inputs.parameters.root_id}}`}}"
+          - name: MSG
+            value: "{{`{{inputs.parameters.msg}}`}}"
+        source: |
+          set -eu
+          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT" \
+                  '{channel_id:$c,message:$m,root_id:$r}')
+          curl -fsS -X POST "$MM_URL/api/v4/posts" \
+            -H "Authorization: Bearer $MM_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$body" | jq -r '"[mm] reply id=" + .id'

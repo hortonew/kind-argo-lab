@@ -10,6 +10,7 @@ up: # Full lab: cluster + all components
   ./scripts/03-push-demo-image.sh
   ./scripts/04-bootstrap-argocd.sh
   ./scripts/035b-configure-gitea-webhook.sh
+  ./scripts/05-wait-for-apps.sh
   just port-forward
 
 down: # Delete kind cluster + registry

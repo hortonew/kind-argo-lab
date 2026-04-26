@@ -1,0 +1,121 @@
+# Mattermost Team Edition (multi-arch) + ephemeral Postgres sidecar.
+# Not for production: data lives in emptyDir and disappears with the pod.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  selector:
+    app: mattermost
+  ports:
+    - name: http
+      port: 8065
+      targetPort: 8065
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mattermost
+  template:
+    metadata:
+      labels:
+        app: mattermost
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: mmuser
+            - name: POSTGRES_PASSWORD
+              value: mmuser-password
+            - name: POSTGRES_DB
+              value: mattermost
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "mmuser", "-d", "mattermost"]
+            periodSeconds: 5
+        - name: mattermost
+          image: {{ .Values.image }}
+          ports:
+            - containerPort: 8065
+          env:
+            - name: MM_SQLSETTINGS_DRIVERNAME
+              value: postgres
+            - name: MM_SQLSETTINGS_DATASOURCE
+              value: "postgres://mmuser:mmuser-password@127.0.0.1:5432/mattermost?sslmode=disable&connect_timeout=10"
+            - name: MM_SERVICESETTINGS_SITEURL
+              value: http://localhost:8065
+            - name: MM_SERVICESETTINGS_LISTENADDRESS
+              value: ":8065"
+            - name: MM_PASSWORDSETTINGS_MINIMUMLENGTH
+              value: "5"
+            - name: MM_PASSWORDSETTINGS_LOWERCASE
+              value: "false"
+            - name: MM_PASSWORDSETTINGS_UPPERCASE
+              value: "false"
+            - name: MM_PASSWORDSETTINGS_NUMBER
+              value: "false"
+            - name: MM_PASSWORDSETTINGS_SYMBOL
+              value: "false"
+            - name: MM_TEAMSETTINGS_ENABLEUSERCREATION
+              value: "true"
+            - name: MM_TEAMSETTINGS_ENABLEOPENSERVER
+              value: "true"
+          volumeMounts:
+            - name: mmdata
+              mountPath: /mattermost/data
+            - name: mmlogs
+              mountPath: /mattermost/logs
+            - name: mmconfig
+              mountPath: /mattermost/config
+            - name: mmplugins
+              mountPath: /mattermost/plugins
+            - name: mmclientplugins
+              mountPath: /mattermost/client/plugins
+          startupProbe:
+            httpGet:
+              path: /api/v4/system/ping
+              port: 8065
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/v4/system/ping
+              port: 8065
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 100m
+      volumes:
+        - name: pgdata
+          emptyDir: {}
+        - name: mmdata
+          emptyDir: {}
+        - name: mmlogs
+          emptyDir: {}
+        - name: mmconfig
+          emptyDir: {}
+        - name: mmplugins
+          emptyDir: {}
+        - name: mmclientplugins
+          emptyDir: {}

@@ -26,9 +26,10 @@ helm upgrade --install "${RELEASE}" gitea-charts/gitea \
   --set persistence.enabled=false \
   --set gitea.config.cache.ADAPTER=memory \
   --set gitea.config.database.DB_TYPE=sqlite3 \
-  --set gitea.config.webhook.ALLOWED_HOST_LIST='private,*.svc,*.svc.cluster.local,argocd-server.argocd.svc.cluster.local,eventsource-svc.argo-events.svc.cluster.local' \
-  --set gitea.config.webhook.SKIP_TLS_VERIFY=true
+  --set gitea.config.webhook.ALLOWED_HOST_LIST='private\,*.svc\,*.svc.cluster.local\,argocd-server.argocd.svc.cluster.local\,eventsource-svc.argo-events.svc.cluster.local' \
+  --set gitea.config.webhook.SKIP_TLS_VERIFY=true \
+  --wait --timeout 5m
 
-kubectl -n "${NAMESPACE}" rollout status deploy/gitea --timeout=120s
+kubectl -n "${NAMESPACE}" rollout status deploy/gitea --timeout=300s
 
 echo "Gitea is deployed and reachable through NodePort 30000"

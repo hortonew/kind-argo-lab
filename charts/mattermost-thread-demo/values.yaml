@@ -1,0 +1,3 @@
+# Image used by the script steps. Needs curl + jq. `badouralix/curl-jq` is
+# tiny (~10MB) and ships both.
+image: badouralix/curl-jq:latest

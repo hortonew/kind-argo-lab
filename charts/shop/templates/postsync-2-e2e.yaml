@@ -22,13 +22,9 @@ spec:
         # Uses kubectlImage (not hookImage) because this is the terminal
         # hook on the success path and is responsible for cleaning up the
         # thread ConfigMap. curl + jq are also present in alpine/k8s.
-        image: {{ .Values.kubectlImage }}
+        image: {{ include "mm-hooks.kubectlImage" . }}
         env:
-          - name: NS
-            value: {{ .Values.hookNamespace }}
-          - name: THREAD_CM
-            value: {{ .Values.threadConfigMap }}
-          {{- include "shop.replyEnv" . | nindent 10 }}
+          {{- include "mm-hooks.cleanupEnv" . | nindent 10 }}
         command: [sh]
         source: |
           set -eu
@@ -59,10 +55,7 @@ spec:
             -H 'Content-Type: application/json' \
             -d "$body" | jq -r '"[shop] reply id=" + .id'
 
-          # Terminal hook on the success path: clean up the thread
-          # ConfigMap. The Mattermost thread itself remains in MM history;
-          # only our local pointer to it is dropped.
-          echo "[shop] cleaning up thread ConfigMap $NS/$THREAD_CM"
-          kubectl -n "$NS" delete configmap "$THREAD_CM" --ignore-not-found
+          # Terminal hook on the success path: clean up the thread CM.
+          {{ include "mm-hooks.cleanupCmd" . | nindent 10 }}
 
           [ -z "$FAIL" ] || exit 1

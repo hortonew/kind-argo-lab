@@ -1,0 +1,5 @@
+# Library-provided hook resources. See charts/shop/templates/lib-hooks.yaml
+# for the explanation; same applies here.
+{{ include "mm-hooks.rbac" . }}
+{{ include "mm-hooks.thread-start" . }}
+{{ include "mm-hooks.syncfail" . }}

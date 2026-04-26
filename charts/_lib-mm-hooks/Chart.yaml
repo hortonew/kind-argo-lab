@@ -1,0 +1,23 @@
+apiVersion: v2
+name: mm-hooks
+description: |
+  Helm library chart shared by `shop` and `shop-failed-deploy` (and any
+  future demo) for the "every Argo CD sync phase posts into one
+  Mattermost thread" pattern.
+
+  Consumers depend on this chart and call:
+    - {{ include "mm-hooks.rbac" . }}          # SA + Role + RoleBinding (PreSync wave -3)
+    - {{ include "mm-hooks.thread-start" . }}  # PreSync wave -2 Workflow
+    - {{ include "mm-hooks.syncfail" . }}      # SyncFail Workflow
+
+  And use these template helpers when writing their own per-chart hook
+  Workflows (migration, e2e, etc.):
+    - {{ include "mm-hooks.replyEnv" . }}      # MM_* + ROOT_ID(optional CM) env block
+    - {{ include "mm-hooks.cleanupEnv" . }}    # replyEnv + NS + THREAD_CM (for kubectl steps)
+    - {{ include "mm-hooks.cleanupCmd" . }}    # `kubectl delete cm` cleanup line for terminal hooks
+
+  Required values in the consumer chart (see consumer values.yaml):
+    hookNamespace, hookServiceAccount, hookNamePrefix, threadConfigMap,
+    hookImage, kubectlImage, messages.threadStart, messages.syncFail
+type: library
+version: 0.1.0

@@ -38,7 +38,10 @@ done
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "${WORKDIR}"; kill ${PF_PID} >/dev/null 2>&1 || true' EXIT
 
-cp -R charts envs apps "${WORKDIR}/"
+# -L: dereference any symlinks during copy. Currently unused (subcharts
+# are shipped as packaged .tgz files under charts/<consumer>/charts/),
+# but kept defensive in case a future chart pulls in a symlinked file.
+cp -RL charts envs apps "${WORKDIR}/"
 (
   cd "${WORKDIR}"
   git init -b main

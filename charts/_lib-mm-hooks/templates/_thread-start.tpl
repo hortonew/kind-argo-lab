@@ -1,4 +1,12 @@
-# PreSync wave -2: open a brand-new Mattermost thread for this sync.
+{{/*
+mm-hooks.thread-start — PreSync wave -2 Workflow that opens a fresh
+Mattermost thread and stashes the parent post id in a ConfigMap so every
+later hook (in this sync) can reply into the same thread.
+
+Required values: hookNamePrefix, hookNamespace, hookServiceAccount,
+                 kubectlImage, threadConfigMap, messages.threadStart.
+*/}}
+{{- define "mm-hooks.thread-start" -}}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
@@ -17,7 +25,7 @@ spec:
   templates:
     - name: main
       script:
-        image: {{ .Values.kubectlImage }}
+        image: {{ include "mm-hooks.kubectlImage" . }}
         env:
           - name: MM_URL
             valueFrom: { secretKeyRef: { name: mattermost-creds, key: url } }
@@ -29,17 +37,20 @@ spec:
             value: {{ .Values.hookNamespace }}
           - name: THREAD_CM
             value: {{ .Values.threadConfigMap }}
+          - name: MSG
+            value: {{ .Values.messages.threadStart | quote }}
         command: [sh]
         source: |
           set -eu
-          MSG=":rocket: *Shop FAILED-DEPLOY demo* — opening thread (this sync is wired to fail)"
           body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" \
                   '{channel_id:$c,message:$m}')
           ROOT_ID=$(curl -fsS -X POST "$MM_URL/api/v4/posts" \
             -H "Authorization: Bearer $MM_TOKEN" \
             -H 'Content-Type: application/json' \
             -d "$body" | jq -r .id)
-          echo "[shop-fail] parent post id=$ROOT_ID"
+          echo "[{{ .Values.hookNamePrefix }}] parent post id=$ROOT_ID"
           kubectl -n "$NS" create configmap "$THREAD_CM" \
             --from-literal=root_id="$ROOT_ID" \
             --dry-run=client -o yaml | kubectl apply -f -
+          echo "[{{ .Values.hookNamePrefix }}] root_id written to $NS/$THREAD_CM"
+{{- end -}}

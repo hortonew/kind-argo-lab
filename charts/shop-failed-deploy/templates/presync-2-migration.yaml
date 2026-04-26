@@ -19,8 +19,8 @@ spec:
   templates:
     - name: main
       script:
-        image: {{ .Values.hookImage }}
-        env: {{ include "shopFail.replyEnv" . | nindent 10 }}
+        image: {{ include "mm-hooks.hookImage" . }}
+        env: {{ include "mm-hooks.replyEnv" . | nindent 10 }}
         command: [sh]
         source: |
           set -eu

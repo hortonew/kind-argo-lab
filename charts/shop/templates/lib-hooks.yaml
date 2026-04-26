@@ -1,0 +1,10 @@
+# Library-provided hook resources. The mm-hooks library chart owns these
+# templates so shop and shop-failed-deploy don't drift:
+#   - mm-hooks.rbac          → SA + Role + RoleBinding (PreSync wave -3)
+#   - mm-hooks.thread-start  → PreSync wave -2 Workflow (opens MM thread)
+#   - mm-hooks.syncfail      → SyncFail Workflow (posts ❌ + drops thread CM)
+#
+# See charts/_lib-mm-hooks/ for the library source.
+{{ include "mm-hooks.rbac" . }}
+{{ include "mm-hooks.thread-start" . }}
+{{ include "mm-hooks.syncfail" . }}

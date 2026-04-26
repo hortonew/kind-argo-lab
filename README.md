@@ -86,6 +86,25 @@ flowchart LR
 
 Each demo lives in its own chart under [charts/](charts) and ships with a matching test under [tests/](tests).
 
+### What should I read first?
+
+Pick the Argo concept you want to learn and jump straight to the relevant chart + test:
+
+| If you want to learn... | Look at | Test |
+| --- | --- | --- |
+| **App-of-apps fan-out** | [charts/app-of-apps](charts/app-of-apps) | [tests/test-argocd.sh](tests/test-argocd.sh) |
+| **Sync waves** (resource ordering) | [charts/sync-waves-demo](charts/sync-waves-demo) | [tests/test-deploy-chain.sh](tests/test-deploy-chain.sh) |
+| **PreSync / PostSync hooks (success path)** | [charts/shop](charts/shop) + [charts/_lib-mm-hooks](charts/_lib-mm-hooks) | [tests/test-shop-thread.sh](tests/test-shop-thread.sh) |
+| **SyncFail hook (failure path)** | [charts/shop-failed-deploy](charts/shop-failed-deploy) | _(manual: `kubectl -n argocd patch app shop-failed-deploy --type merge -p '{"operation":{"sync":{}}}'`)_ |
+| **Blue/green rollout** | [charts/rollout-bluegreen-demo](charts/rollout-bluegreen-demo) | [tests/test-rollout-bluegreen.sh](tests/test-rollout-bluegreen.sh) |
+| **Canary + Prometheus AnalysisTemplate** | [charts/rollout-analysis-demo](charts/rollout-analysis-demo) | [tests/test-rollout-analysis.sh](tests/test-rollout-analysis.sh) |
+| **Experiment (baseline + candidate)** | [charts/rollout-experiment-demo](charts/rollout-experiment-demo) | [tests/test-rollout-experiment.sh](tests/test-rollout-experiment.sh) |
+| **Argo Workflows + MinIO artifacts** | [charts/playwright-e2e-demo](charts/playwright-e2e-demo) | [tests/test-playwright-e2e.sh](tests/test-playwright-e2e.sh) |
+| **Argo Events (calendar → workflow)** | [charts/calendar-event-demo](charts/calendar-event-demo) | [tests/test-calendar-event.sh](tests/test-calendar-event.sh) |
+| **Threaded Mattermost notifications (DAG-internal)** | [charts/mattermost-thread-demo](charts/mattermost-thread-demo) | [tests/test-mattermost-thread.sh](tests/test-mattermost-thread.sh) |
+| **Image Updater write-back loop** | [charts/argocd-image-updater](charts/argocd-image-updater) | [tests/test-image-updater.sh](tests/test-image-updater.sh) |
+| **Webhook-driven event pipeline** | [charts/argo-events](charts/argo-events) | [tests/test-events.sh](tests/test-events.sh) |
+
 ### Blue/Green rollout — manual promotion
 
 [charts/rollout-bluegreen-demo](charts/rollout-bluegreen-demo) · [tests/test-rollout-bluegreen.sh](tests/test-rollout-bluegreen.sh)
@@ -182,6 +201,29 @@ flowchart LR
 ```
 
 The `mattermost-creds` Secret is created by a PostSync bootstrap Job in the mattermost chart and replicated into every namespace listed in [charts/mattermost/values.yaml](charts/mattermost/values.yaml) `credsNamespaces`.
+
+#### Mattermost creds replication (one Secret, many namespaces)
+
+Every chart that posts to Mattermost (`mattermost-thread-demo`, `shop`, `shop-failed-deploy`, future demos) reads the same `mattermost-creds` Secret with three keys: `url`, `token`, `channel_id`. The Secret is **not** synced by Argo CD per-app — it's bootstrapped once by [charts/mattermost/templates/bootstrap.yaml](charts/mattermost/templates/bootstrap.yaml) and pushed into every consumer namespace.
+
+```mermaid
+flowchart LR
+  CHART[charts/mattermost values.yaml<br/>credsNamespaces: [argo, ...]] --> JOB[PostSync Job<br/>mattermost-bootstrap]
+  JOB -->|create sysadmin + team + channel| MM[Mattermost API]
+  JOB -->|kubectl create secret| S1[(Secret mattermost-creds<br/>argo ns)]
+  JOB -->|kubectl create secret| S2[(Secret mattermost-creds<br/>...other ns)]
+  S1 --> SHOP[shop hook Workflows]
+  S1 --> MTD[mattermost-thread-demo<br/>Workflow]
+  S2 --> X[future consumer]
+```
+
+To wire a new chart into the thread pattern:
+
+1. Add the chart's namespace to `credsNamespaces` in [charts/mattermost/values.yaml](charts/mattermost/values.yaml).
+2. Reference the Secret from your hook Workflow via `secretKeyRef: { name: mattermost-creds, key: url|token|channel_id }` — see the `mm-hooks.replyEnv` helper in [charts/_lib-mm-hooks/templates/_env.tpl](charts/_lib-mm-hooks/templates/_env.tpl).
+3. Resync the `mattermost` Application; the bootstrap Job re-runs and seeds the Secret into the new namespace.
+
+The bootstrap Job is itself a PostSync hook, so deleting it (or syncing the mattermost App) reseeds creds into every listed namespace — useful if a Secret gets deleted or a new namespace is added.
 
 ### Shop — PreSync/PostSync hooks as Argo Workflows (success path)
 

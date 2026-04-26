@@ -1,5 +1,15 @@
-# SyncFail: posts the abort notice into the thread opened by PreSync
-# wave -2. This is the whole point of the failed-deploy demo.
+{{/*
+mm-hooks.syncfail — SyncFail Workflow. Posts the abort notice into the
+thread opened by PreSync wave -2 and then drops the thread ConfigMap as
+the terminal action on the failure path.
+
+If wave -2 itself failed before creating the CM, ROOT_ID is empty and we
+fall back to a top-level post so the failure is still visible.
+
+Required values: hookNamePrefix, hookNamespace, hookServiceAccount,
+                 kubectlImage, threadConfigMap, messages.syncFail.
+*/}}
+{{- define "mm-hooks.syncfail" -}}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
@@ -17,19 +27,15 @@ spec:
   templates:
     - name: main
       script:
-        # Uses kubectlImage to clean up the thread ConfigMap as the last
-        # step on the failure path.
-        image: {{ .Values.kubectlImage }}
+        # kubectlImage so we can also clean up the thread CM in the same step.
+        image: {{ include "mm-hooks.kubectlImage" . }}
         env:
-          - name: NS
-            value: {{ .Values.hookNamespace }}
-          - name: THREAD_CM
-            value: {{ .Values.threadConfigMap }}
-          {{- include "shopFail.replyEnv" . | nindent 10 }}
+          {{- include "mm-hooks.cleanupEnv" . | nindent 10 }}
+          - name: MSG
+            value: {{ .Values.messages.syncFail | quote }}
         command: [sh]
         source: |
           set -eu
-          MSG=":x: *Shop sync ABORTED* — PreSync migration failed; rolling back, no Sync/PostSync ran"
           if [ -n "${ROOT_ID:-}" ]; then
             body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
                     '{channel_id:$c,message:$m,root_id:$r}')
@@ -40,9 +46,7 @@ spec:
           curl -fsS -X POST "$MM_URL/api/v4/posts" \
             -H "Authorization: Bearer $MM_TOKEN" \
             -H 'Content-Type: application/json' \
-            -d "$body" | jq -r '"[shop-fail] failure post id=" + .id'
+            -d "$body" | jq -r '"[{{ .Values.hookNamePrefix }}] failure post id=" + .id'
 
-          # Terminal hook on the failure path: clean up the thread
-          # ConfigMap. The Mattermost thread remains; only the pointer is dropped.
-          echo "[shop-fail] cleaning up thread ConfigMap $NS/$THREAD_CM"
-          kubectl -n "$NS" delete configmap "$THREAD_CM" --ignore-not-found
+          {{ include "mm-hooks.cleanupCmd" . | nindent 10 }}
+{{- end -}}

@@ -5,4 +5,9 @@ description: |
   migration (exit 1) so you can see the SyncFail hook post a ❌
   reply into a fresh Mattermost thread.
 type: application
-version: 0.1.0
+version: 0.2.0
+
+dependencies:
+  - name: mm-hooks
+    version: 0.1.0
+    repository: file://../_lib-mm-hooks

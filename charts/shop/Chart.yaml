@@ -3,11 +3,17 @@ name: shop
 description: |
   Demo "Shop" app that exercises Argo CD resource hooks (PreSync, PostSync,
   SyncFail) and posts every stage as a threaded Mattermost message:
-    PreSync wave -2: open thread (parent post + ConfigMap stash root_id)
+    PreSync wave -3: hook RBAC (from mm-hooks library)
+    PreSync wave -2: open thread + stash root_id (from mm-hooks library)
     PreSync wave -1: fake DB migration → reply
     Sync:            deploy nginx (the "shop")
     PostSync wave 1: ":white_check_mark: sync succeeded" reply
-    PostSync wave 2: fake e2e tests → reply
-    SyncFail:        ":x: sync failed" reply (alternative path)
+    PostSync wave 2: fake e2e tests → reply, drop thread CM
+    SyncFail:        ":x: sync failed" reply, drop thread CM (from mm-hooks library)
 type: application
-version: 0.1.0
+version: 0.2.0
+
+dependencies:
+  - name: mm-hooks
+    version: 0.1.0
+    repository: file://../_lib-mm-hooks

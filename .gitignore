@@ -1,4 +1,5 @@
 TODO.md
+.DS_Store
 .vscode
 .port-forward.pids
 .port-forward.log
@@ -6,3 +7,8 @@ TODO.md
 *.tar.gz
 *.log
 *.lock
+
+# Allow Helm subchart tarballs (created by `helm dep update`) — they're
+# the packaged form of charts/_lib-mm-hooks consumed by shop / shop-failed-deploy.
+!charts/*/charts/*.tgz
+!charts/*/Chart.lock

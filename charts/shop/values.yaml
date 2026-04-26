@@ -9,12 +9,10 @@
 # The "app" itself: nginx with a custom landing page so you can curl it.
 image: nginx:stable-alpine
 
-# Image used by every Workflow step. Needs curl + jq for talking to
-# Mattermost and a quick fake migration / e2e test. The "thread-start"
-# and "syncfail" steps additionally need kubectl to read/write the
-# thread ConfigMap, so those steps override the image to alpine/k8s.
-hookImage: badouralix/curl-jq:latest
-kubectlImage: alpine/k8s:1.30.0
+# Hook step images are provided by the mm-hooks library (see
+# charts/_lib-mm-hooks/templates/_env.tpl). Override here if needed:
+#   hookImage: badouralix/curl-jq:latest      # curl + jq only
+#   kubectlImage: alpine/k8s:1.30.0           # adds kubectl
 
 replicas: 1
 servicePort: 80
@@ -31,3 +29,12 @@ threadConfigMap: shop-mm-thread
 # ServiceAccount the hook Workflows run as (created in templates/rbac.yaml
 # in hookNamespace). Needs ConfigMap rw + workflow pod execution rights.
 hookServiceAccount: shop-hooks
+
+# Resource-name prefix for every hook Workflow + log prefix in script
+# output. The mm-hooks library uses this to namespace its workflows.
+hookNamePrefix: shop
+
+# Messages posted by the mm-hooks library Workflows.
+messages:
+  threadStart: ":rocket: *Shop sync starting* — opening thread for migration → sync → e2e"
+  syncFail: ":x: *Shop sync failed* — see Argo CD UI for details"

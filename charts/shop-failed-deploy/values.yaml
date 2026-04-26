@@ -10,9 +10,7 @@ appNamespace: shop-failed-deploy
 # The "app" itself (won't actually be applied because PreSync fails).
 image: nginx:stable-alpine
 
-# Hook step images.
-hookImage: badouralix/curl-jq:latest
-kubectlImage: alpine/k8s:1.30.0
+# Hook step images are provided by the mm-hooks library; override here if needed.
 
 replicas: 1
 servicePort: 80
@@ -32,3 +30,8 @@ hookServiceAccount: shop-failed-deploy-hooks
 # names across hooks of the same Application; using a chart-specific
 # prefix also makes the Workflows easy to spot in the Workflows UI.
 hookNamePrefix: shop-failed-deploy
+
+# Messages posted by the mm-hooks library Workflows.
+messages:
+  threadStart: ":rocket: *Shop FAILED-DEPLOY demo* — opening thread (this sync is wired to fail)"
+  syncFail: ":x: *Shop sync ABORTED* — PreSync migration failed; rolling back, no Sync/PostSync ran"

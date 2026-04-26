@@ -1,0 +1,40 @@
+# PreSync wave -1: simulate a FAILING DB migration. Posts the failure
+# reply into the thread, then exits non-zero. Argo CD aborts the sync,
+# never runs PostSync, and triggers the SyncFail hook.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: {{ .Values.hookNamePrefix }}-migration
+  namespace: {{ .Values.hookNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  entrypoint: main
+  serviceAccountName: {{ .Values.hookServiceAccount }}
+  ttlStrategy:
+    secondsAfterCompletion: 600
+  templates:
+    - name: main
+      script:
+        image: {{ .Values.hookImage }}
+        env: {{ include "shopFail.replyEnv" . | nindent 10 }}
+        command: [sh]
+        source: |
+          set -eu
+          echo "[shop-fail] starting fake migration..."
+          for i in 1 2; do echo "  applying migration $i"; sleep 1; done
+          echo "[shop-fail] migration 3 BOOM — schema lock conflict"
+
+          MSG=":boom: PreSync migration FAILED — schema lock conflict on migration 3 of 3"
+          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
+                  '{channel_id:$c,message:$m,root_id:$r}')
+          curl -fsS -X POST "$MM_URL/api/v4/posts" \
+            -H "Authorization: Bearer $MM_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$body" | jq -r '"[shop-fail] reply id=" + .id'
+
+          # Intentional failure so Argo CD aborts and SyncFail hook runs.
+          exit 1

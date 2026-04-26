@@ -1,0 +1,34 @@
+# Failure-demo variant of the shop chart. Identical to `shop` except the
+# PreSync migration Workflow is hardwired to exit 1 — Argo CD aborts the
+# sync, the Sync + PostSync hooks never run, and the SyncFail hook posts
+# the ❌ reply into the same thread opened by PreSync wave -2.
+
+# The "app" Deployment lives in this namespace (matches Application
+# destination.namespace in app-of-apps).
+appNamespace: shop-failed-deploy
+
+# The "app" itself (won't actually be applied because PreSync fails).
+image: nginx:stable-alpine
+
+# Hook step images.
+hookImage: badouralix/curl-jq:latest
+kubectlImage: alpine/k8s:1.30.0
+
+replicas: 1
+servicePort: 80
+
+# Hook Workflows live in the workflow controller's namespace.
+hookNamespace: argo
+
+# Unique ConfigMap name so a successful `shop` thread doesn't get
+# clobbered when this chart's wave -2 runs.
+threadConfigMap: shop-failed-deploy-mm-thread
+
+# Unique ServiceAccount so this chart's hook RBAC doesn't fight the
+# `shop` chart's RBAC for the same SA name.
+hookServiceAccount: shop-failed-deploy-hooks
+
+# Resource-name prefix for every hook Workflow. Argo CD requires unique
+# names across hooks of the same Application; using a chart-specific
+# prefix also makes the Workflows easy to spot in the Workflows UI.
+hookNamePrefix: shop-failed-deploy

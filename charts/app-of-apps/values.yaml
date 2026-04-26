@@ -327,6 +327,14 @@ apps:
   shop:
     path: charts/shop
     namespace: shop
+  shop-failed-deploy:
+    path: charts/shop-failed-deploy
+    namespace: shop-failed-deploy
+    # Don't auto-retry: this app's PreSync migration is intentionally
+    # broken so the SyncFail hook fires. Manual sync = manual demo.
+    syncPolicy:
+      syncOptions:
+      - CreateNamespace=true
   playwright-e2e-demo:
     path: charts/playwright-e2e-demo
     namespace: argo

@@ -162,3 +162,89 @@ flowchart LR
 
 > Note: the cluster-default `archiveLogs` is set to `false` in [charts/argo-workflows/templates/artifact-repository.yaml](charts/argo-workflows/templates/artifact-repository.yaml) so high-frequency demos don't fill the bucket. Workflows that need artifacts declare them explicitly via `outputs.artifacts` (see Playwright above).
 
+### Mattermost threaded notifications
+
+[charts/mattermost](charts/mattermost) · [charts/mattermost-thread-demo](charts/mattermost-thread-demo) · [tests/test-mattermost-thread.sh](tests/test-mattermost-thread.sh)
+
+A `WorkflowTemplate` opens a Mattermost thread by POSTing a parent message, then every later step replies into that thread by passing the parent's `root_id`. Threading state lives entirely in the `Workflow` CR (output parameters between DAG tasks) — no DB needed.
+
+```mermaid
+flowchart LR
+  subgraph WF[Workflow mm-thread-test-*]
+    direction LR
+    START[start: post-parent<br/>POST /api/v4/posts<br/>→ outputs.root_id] --> S1[step-1: post-reply<br/>root_id from start]
+    S1 --> S2[step-2: post-reply]
+    S2 --> S3[done: post-reply]
+  end
+  WF -.reads.- SEC[(Secret mattermost-creds<br/>url / token / channel_id)]
+  WF -->|HTTPS| MM[Mattermost<br/>lab/Workflow Status]
+  MM --> THR[Thread:<br/>parent + 3 replies]
+```
+
+The `mattermost-creds` Secret is created by a PostSync bootstrap Job in the mattermost chart and replicated into every namespace listed in [charts/mattermost/values.yaml](charts/mattermost/values.yaml) `credsNamespaces`.
+
+### Shop — PreSync/PostSync hooks as Argo Workflows (success path)
+
+[charts/shop](charts/shop) · [tests/test-shop-thread.sh](tests/test-shop-thread.sh)
+
+The same threading pattern applied to Argo CD lifecycle hooks. Every sync of the `shop` Application opens a fresh thread, reports each phase, and runs an in-cluster e2e check. All five hooks are `kind: Workflow` so they show up in the Workflows UI.
+
+```mermaid
+flowchart TB
+  subgraph PRE[PreSync]
+    direction LR
+    R[wave -3<br/>RBAC: SA + Role + RoleBinding]
+    T[wave -2<br/>shop-thread-start<br/>POST parent → CM root_id]
+    M[wave -1<br/>shop-migration<br/>fake DB migration → reply]
+    R --> T --> M
+  end
+  subgraph SYNC[Sync]
+    APP[Deployment + Service<br/>nginx:stable-alpine]
+  end
+  subgraph POST[PostSync]
+    direction LR
+    SS[wave 1<br/>shop-sync-status<br/>:white_check_mark: reply]
+    E2E[wave 2<br/>shop-e2e<br/>curl Service → reply<br/>cleanup CM]
+    SS --> E2E
+  end
+  PRE --> SYNC --> POST
+
+  CM[(ConfigMap<br/>argo/shop-mm-thread<br/>root_id)]
+  T -. writes .-> CM
+  M -. reads .-> CM
+  SS -. reads .-> CM
+  E2E -. reads + deletes .-> CM
+
+  POST --> MM[Mattermost thread:<br/>parent + 3 replies]
+```
+
+Coordination state is the single ConfigMap `argo/shop-mm-thread` — wave -2 writes it, every later hook reads it via `configMapKeyRef`, and the terminal hook deletes it. Argo CD itself has zero Mattermost knowledge; it just applies hook resources at the right phase and watches their `.status.phase`.
+
+### Shop — failed-deploy (SyncFail path)
+
+[charts/shop-failed-deploy](charts/shop-failed-deploy)
+
+Variant of the `shop` chart whose PreSync migration is hardwired to `exit 1`. Demonstrates that the SyncFail hook can post into the same thread the (now-failed) PreSync workflow opened.
+
+```mermaid
+flowchart TB
+  subgraph PRE[PreSync]
+    direction LR
+    R[wave -3<br/>RBAC]
+    T[wave -2<br/>thread-start<br/>POST parent → CM]
+    M[wave -1<br/>migration<br/>:boom: reply<br/>then exit 1]
+    R --> T --> M
+  end
+  M -- failure --> X{Argo CD:<br/>sync Failed}
+  X -. skips .-> SYNC[Sync phase<br/>never runs]
+  X --> SF[SyncFail hook<br/>shop-failed-deploy-syncfail<br/>:x: reply<br/>cleanup CM]
+  SF --> MM[Mattermost thread:<br/>parent + :boom: + :x:]
+
+  CM[(ConfigMap<br/>argo/shop-failed-deploy-mm-thread)]
+  T -. writes .-> CM
+  M -. reads .-> CM
+  SF -. reads + deletes .-> CM
+```
+
+Trigger manually: `kubectl -n argocd patch app shop-failed-deploy --type merge -p '{"operation":{"sync":{}}}'`.
+

@@ -1,0 +1,59 @@
+# Stub Deployment + Service. These never get applied in practice because
+# the PreSync migration Workflow always exits 1 and Argo CD aborts before
+# the Sync phase. They exist so the chart is structurally similar to the
+# real `shop` chart.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shop-failed-deploy-html
+  namespace: {{ .Values.appNamespace }}
+data:
+  index.html: |
+    <!doctype html>
+    <html><head><title>Shop (failed deploy demo)</title></head>
+    <body style="font-family:sans-serif;padding:2em">
+    <h1>🛒 Shop — failed deploy demo</h1>
+    <p>You should never see this page; the PreSync migration is wired to fail.</p>
+    </body></html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shop-failed-deploy
+  namespace: {{ .Values.appNamespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: shop-failed-deploy
+  template:
+    metadata:
+      labels:
+        app: shop-failed-deploy
+    spec:
+      containers:
+        - name: shop
+          image: {{ .Values.image }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: shop-failed-deploy-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shop-failed-deploy
+  namespace: {{ .Values.appNamespace }}
+spec:
+  selector:
+    app: shop-failed-deploy
+  ports:
+    - name: http
+      port: {{ .Values.servicePort }}
+      targetPort: 80

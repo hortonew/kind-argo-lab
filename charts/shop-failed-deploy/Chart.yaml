@@ -1,0 +1,8 @@
+apiVersion: v2
+name: shop-failed-deploy
+description: |
+  Variant of the `shop` chart that deliberately fails its PreSync
+  migration (exit 1) so you can see the SyncFail hook post a ❌
+  reply into a fresh Mattermost thread.
+type: application
+version: 0.1.0

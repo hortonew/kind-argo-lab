@@ -1,6 +1,6 @@
 dependencies:
 - name: mm-hooks
   repository: file://../_lib-mm-hooks
-  version: 0.1.0
-digest: sha256:2d28e2fc9d89c08bd05801683748500865500e57081ab8cf25b58787483d1810
-generated: "2026-04-26T12:47:36.862568-06:00"
+  version: 0.2.0
+digest: sha256:2b0755420adfef6af2ef2a25324c1d38a21d78a0a9b689b9bb1b287835073f44
+generated: "2026-04-26T13:16:20.863324-06:00"

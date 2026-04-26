@@ -1,6 +1,8 @@
-# PostSync wave 2: simulated e2e tests against the live Service. Hits
-# the in-cluster shop Service and replies with pass/fail in the same
-# thread. A real implementation would call playwright-e2e or similar.
+# PostSync wave 2: real e2e tests against the live Service. Submits a
+# child Workflow from the playwright-e2e WorkflowTemplate (see
+# charts/playwright-e2e-demo), waits for it, then posts pass/fail plus
+# the MinIO report URL into the same Mattermost thread. As the terminal
+# success-path hook it also deletes the thread ConfigMap.
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
@@ -19,9 +21,9 @@ spec:
   templates:
     - name: main
       script:
-        # Uses kubectlImage (not hookImage) because this is the terminal
-        # hook on the success path and is responsible for cleaning up the
-        # thread ConfigMap. curl + jq are also present in alpine/k8s.
+        # Uses kubectlImage (not hookImage) because this hook submits a
+        # child Workflow via kubectl and is also the terminal hook on the
+        # success path responsible for cleaning up the thread ConfigMap.
         image: {{ include "mm-hooks.kubectlImage" . }}
         env:
           {{- include "mm-hooks.cleanupEnv" . | nindent 10 }}
@@ -29,23 +31,44 @@ spec:
         source: |
           set -eu
           TARGET="http://shop.shop.svc.cluster.local:{{ .Values.servicePort }}/"
-          echo "[shop] running e2e tests against $TARGET"
+          WF_NAME="shop-pw-$(date +%s)"
+          echo "[shop] submitting playwright-e2e workflow $WF_NAME against $TARGET"
 
-          FAIL=""
-          # Test 1: HTTP 200
-          CODE=$(curl -fsS -o /tmp/body -w '%{http_code}' "$TARGET" || true)
-          if [ "$CODE" != "200" ]; then
-            FAIL="status check failed (got $CODE)"
-          fi
-          # Test 2: page contains expected marker
-          if [ -z "$FAIL" ] && ! grep -q 'Shop demo' /tmp/body; then
-            FAIL="content check failed"
-          fi
+          cat <<YAML | kubectl -n "$NS" create -f -
+          apiVersion: argoproj.io/v1alpha1
+          kind: Workflow
+          metadata:
+            name: $WF_NAME
+            labels:
+              app: shop
+              triggered-by: shop-e2e
+          spec:
+            workflowTemplateRef:
+              name: playwright-e2e
+            arguments:
+              parameters:
+                - name: target-url
+                  value: "$TARGET"
+          YAML
 
-          if [ -z "$FAIL" ]; then
-            MSG=":test_tube: PostSync e2e tests passed (status 200, content OK)"
+          # Poll: WorkflowTemplate runs can take several minutes (npm install
+          # + browser tests). Cap at ~10 minutes.
+          PHASE=""
+          for i in $(seq 1 120); do
+            PHASE=$(kubectl -n "$NS" get workflow "$WF_NAME" \
+              -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            case "$PHASE" in
+              Succeeded|Failed|Error) break ;;
+            esac
+            sleep 5
+          done
+          echo "[shop] playwright workflow $WF_NAME phase=$PHASE"
+
+          REPORT_URL="http://localhost:9000/argo-artifacts/$WF_NAME/$WF_NAME/playwright-report/index.html"
+          if [ "$PHASE" = "Succeeded" ]; then
+            MSG=":test_tube: PostSync e2e (Playwright) passed → [HTML report]($REPORT_URL)"
           else
-            MSG=":rotating_light: PostSync e2e tests failed: $FAIL"
+            MSG=":rotating_light: PostSync e2e (Playwright) finished phase=$PHASE → [HTML report]($REPORT_URL)"
           fi
 
           body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
@@ -58,4 +81,4 @@ spec:
           # Terminal hook on the success path: clean up the thread CM.
           {{ include "mm-hooks.cleanupCmd" . | nindent 10 }}
 
-          [ -z "$FAIL" ] || exit 1
+          [ "$PHASE" = "Succeeded" ] || exit 1

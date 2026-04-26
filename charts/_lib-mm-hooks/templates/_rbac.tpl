@@ -43,6 +43,11 @@ rules:
   - apiGroups: ["argoproj.io"]
     resources: ["workflowtaskresults", "workflowtasksets", "workflowtasksets/status"]
     verbs: ["create", "get", "list", "watch", "patch", "update"]
+  # Some hooks (e.g. shop's PostSync e2e) submit child Workflows from a
+  # WorkflowTemplate and poll them to completion.
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows", "workflowtemplates"]
+    verbs: ["create", "get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

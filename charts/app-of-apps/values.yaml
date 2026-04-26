@@ -295,7 +295,7 @@ apps:
           - name: argo-artifacts
             # `download` = anonymous GET on objects (no listing). Lets you
             # open Playwright HTML reports directly at:
-            #   http://localhost:9000/argo-artifacts/<wf>/<wf>/html-report/index.html
+            #   http://localhost:9000/argo-artifacts/<wf>/<wf>/playwright-report/index.html
             policy: download
             purge: false
 

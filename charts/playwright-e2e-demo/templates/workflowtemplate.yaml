@@ -27,7 +27,7 @@ spec:
           # configured in charts/argo-workflows/templates/artifact-repository.yaml.
           # `archive: none` uploads each file individually so the report's
           # own index.html is browsable directly at:
-          #   http://localhost:9000/argo-artifacts/<wf>/<wf>/html-report/index.html
+          #   http://localhost:9000/argo-artifacts/<wf>/<wf>/playwright-report/index.html
           # (the MinIO bucket is set to `policy: download` for anonymous GET).
           - name: html-report
             path: /work/playwright-report
@@ -103,6 +103,6 @@ spec:
             echo
             echo "================================================================"
             echo "Playwright HTML report (after artifacts upload):"
-            echo "  http://localhost:9000/argo-artifacts/{{`{{workflow.name}}`}}/{{`{{workflow.name}}`}}/html-report/index.html"
+            echo "  http://localhost:9000/argo-artifacts/{{`{{workflow.name}}`}}/{{`{{workflow.name}}`}}/playwright-report/index.html"
             echo "================================================================"
             exit $rc

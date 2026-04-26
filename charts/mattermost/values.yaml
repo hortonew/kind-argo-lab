@@ -16,6 +16,8 @@ channel:
   name: workflow-status
   displayName: Workflow Status
 
-# Namespace where the bootstrap Job writes the `mattermost-creds` Secret.
-# Argo Workflows live in `argo`, so credentials land there for the demo.
-credsNamespace: argo
+# Namespaces that get a copy of the `mattermost-creds` Secret created by
+# the bootstrap Job. Add a namespace here whenever a new chart needs to
+# post to Mattermost.
+credsNamespaces:
+- argo # Argo Workflows: mattermost-thread-demo + shop hook Workflows

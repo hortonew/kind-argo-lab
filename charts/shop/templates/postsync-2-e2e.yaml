@@ -1,0 +1,54 @@
+# PostSync wave 2: simulated e2e tests against the live Service. Hits
+# the in-cluster shop Service and replies with pass/fail in the same
+# thread. A real implementation would call playwright-e2e or similar.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: shop-e2e
+  namespace: {{ .Values.hookNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  entrypoint: main
+  serviceAccountName: {{ .Values.hookServiceAccount }}
+  ttlStrategy:
+    secondsAfterCompletion: 600
+  templates:
+    - name: main
+      script:
+        image: {{ .Values.hookImage }}
+        env: {{ include "shop.replyEnv" . | nindent 10 }}
+        command: [sh]
+        source: |
+          set -eu
+          TARGET="http://shop.shop.svc.cluster.local:{{ .Values.servicePort }}/"
+          echo "[shop] running e2e tests against $TARGET"
+
+          FAIL=""
+          # Test 1: HTTP 200
+          CODE=$(curl -fsS -o /tmp/body -w '%{http_code}' "$TARGET" || true)
+          if [ "$CODE" != "200" ]; then
+            FAIL="status check failed (got $CODE)"
+          fi
+          # Test 2: page contains expected marker
+          if [ -z "$FAIL" ] && ! grep -q 'Shop demo' /tmp/body; then
+            FAIL="content check failed"
+          fi
+
+          if [ -z "$FAIL" ]; then
+            MSG=":test_tube: PostSync e2e tests passed (status 200, content OK)"
+          else
+            MSG=":rotating_light: PostSync e2e tests failed: $FAIL"
+          fi
+
+          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
+                  '{channel_id:$c,message:$m,root_id:$r}')
+          curl -fsS -X POST "$MM_URL/api/v4/posts" \
+            -H "Authorization: Bearer $MM_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$body" | jq -r '"[shop] reply id=" + .id'
+
+          [ -z "$FAIL" ] || exit 1

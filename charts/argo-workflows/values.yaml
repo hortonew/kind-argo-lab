@@ -8,9 +8,9 @@ argo-workflows:
     # Bumped from 1 → 20 so concurrent demos (calendar tick every 30s + ad-hoc
     # tests) don't evict each other before assertions run.
     retentionPolicy:
-      completed: 20
-      failed: 20
-      errored: 20
+      completed: 5
+      failed: 5
+      errored: 5
   server:
     authModes:
     - server

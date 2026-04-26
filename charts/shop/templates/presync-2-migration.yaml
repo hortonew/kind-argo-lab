@@ -1,0 +1,37 @@
+# PreSync wave -1: simulate a database migration. Replies into the
+# thread opened by wave -2. If this Workflow fails, sync aborts and
+# the SyncFail hook posts the failure reply.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: shop-migration
+  namespace: {{ .Values.hookNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  entrypoint: main
+  serviceAccountName: {{ .Values.hookServiceAccount }}
+  ttlStrategy:
+    secondsAfterCompletion: 600
+  templates:
+    - name: main
+      script:
+        image: {{ .Values.hookImage }}
+        env: {{ include "shop.replyEnv" . | nindent 10 }}
+        command: [sh]
+        source: |
+          set -eu
+          echo "[shop] running fake DB migration..."
+          for i in 1 2 3; do echo "  applying migration $i"; sleep 1; done
+          echo "[shop] migration done"
+
+          MSG=":hammer_and_wrench: PreSync migration complete (3 migrations applied)"
+          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
+                  '{channel_id:$c,message:$m,root_id:$r}')
+          curl -fsS -X POST "$MM_URL/api/v4/posts" \
+            -H "Authorization: Bearer $MM_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$body" | jq -r '"[shop] reply id=" + .id'

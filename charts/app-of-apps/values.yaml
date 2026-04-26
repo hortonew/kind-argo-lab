@@ -324,6 +324,9 @@ apps:
   mattermost-thread-demo:
     path: charts/mattermost-thread-demo
     namespace: argo
+  shop:
+    path: charts/shop
+    namespace: shop
   playwright-e2e-demo:
     path: charts/playwright-e2e-demo
     namespace: argo

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: shop
+description: |
+  Demo "Shop" app that exercises Argo CD resource hooks (PreSync, PostSync,
+  SyncFail) and posts every stage as a threaded Mattermost message:
+    PreSync wave -2: open thread (parent post + ConfigMap stash root_id)
+    PreSync wave -1: fake DB migration → reply
+    Sync:            deploy nginx (the "shop")
+    PostSync wave 1: ":white_check_mark: sync succeeded" reply
+    PostSync wave 2: fake e2e tests → reply
+    SyncFail:        ":x: sync failed" reply (alternative path)
+type: application
+version: 0.1.0

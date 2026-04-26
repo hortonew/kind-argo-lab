@@ -1,0 +1,33 @@
+# PostSync wave 1: sync succeeded. PostSync only runs when the sync
+# itself completed Healthy, so reaching this Workflow is the signal
+# we emit ":white_check_mark: sync ok" into the thread.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: shop-sync-status
+  namespace: {{ .Values.hookNamespace }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  entrypoint: main
+  serviceAccountName: {{ .Values.hookServiceAccount }}
+  ttlStrategy:
+    secondsAfterCompletion: 600
+  templates:
+    - name: main
+      script:
+        image: {{ .Values.hookImage }}
+        env: {{ include "shop.replyEnv" . | nindent 10 }}
+        command: [sh]
+        source: |
+          set -eu
+          MSG=":white_check_mark: Sync succeeded — Shop Deployment is Healthy"
+          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
+                  '{channel_id:$c,message:$m,root_id:$r}')
+          curl -fsS -X POST "$MM_URL/api/v4/posts" \
+            -H "Authorization: Bearer $MM_TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$body" | jq -r '"[shop] reply id=" + .id'

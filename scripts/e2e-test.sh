@@ -39,5 +39,6 @@ run_step "rollout experiment demo" "${ROOT_DIR}/tests/test-rollout-experiment.sh
 run_step "calendar event demo" "${ROOT_DIR}/tests/test-calendar-event.sh"
 run_step "playwright e2e demo" "${ROOT_DIR}/tests/test-playwright-e2e.sh"
 run_step "mattermost thread demo" "${ROOT_DIR}/tests/test-mattermost-thread.sh"
+run_step "shop sync hooks demo" "${ROOT_DIR}/tests/test-shop-thread.sh"
 
 echo "All E2E checks passed"

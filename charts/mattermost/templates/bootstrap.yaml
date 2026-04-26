@@ -1,22 +1,24 @@
 # Bootstrap Job: idempotent. Waits for Mattermost API, creates the sysadmin
 # user (first user → sysadmin), logs in to capture a session token, creates
-# the team + channel, then writes a Secret in the workflows namespace.
+# the team + channel, then writes a `mattermost-creds` Secret to each of the
+# `credsNamespaces` (so charts in those namespaces can post to Mattermost).
 #
-# Re-run by deleting the Job; the controller-side Helm hook annotation makes
-# Argo CD recreate it on every sync if needed.
+# Re-run by deleting the Job; the PostSync hook annotation makes Argo CD
+# recreate it on every sync.
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: mattermost-bootstrap
   namespace: mattermost
+{{- range $ns := .Values.credsNamespaces }}
 ---
-# RBAC: write the creds Secret into the workflows namespace.
+# RBAC: allow the bootstrap Job to write the creds Secret into {{ $ns }}.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: mattermost-bootstrap
-  namespace: {{ .Values.credsNamespace }}
+  namespace: {{ $ns }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -26,7 +28,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: mattermost-bootstrap
-  namespace: {{ .Values.credsNamespace }}
+  namespace: {{ $ns }}
 subjects:
   - kind: ServiceAccount
     name: mattermost-bootstrap
@@ -35,6 +37,7 @@ roleRef:
   kind: Role
   name: mattermost-bootstrap
   apiGroup: rbac.authorization.k8s.io
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -74,8 +77,8 @@ spec:
               value: {{ .Values.channel.name | quote }}
             - name: CHANNEL_DISPLAY
               value: {{ .Values.channel.displayName | quote }}
-            - name: CREDS_NS
-              value: {{ .Values.credsNamespace | quote }}
+            - name: CREDS_NAMESPACES
+              value: {{ join " " .Values.credsNamespaces | quote }}
           command: [sh, -c]
           args:
             - |
@@ -143,12 +146,14 @@ spec:
                 -H 'Content-Type: application/json' \
                 -d "$(jq -nc --arg u "$USER_ID" '{user_id:$u}')" >/dev/null || true
 
-              echo "[mm] writing mattermost-creds Secret to namespace $CREDS_NS"
-              kubectl -n "$CREDS_NS" create secret generic mattermost-creds \
-                --from-literal=url="$MM_URL" \
-                --from-literal=token="$TOKEN" \
-                --from-literal=channel_id="$CHANNEL_ID" \
-                --from-literal=team_id="$TEAM_ID" \
-                --dry-run=client -o yaml | kubectl apply -f -
+              for ns in $CREDS_NAMESPACES; do
+                echo "[mm] writing mattermost-creds Secret to namespace $ns"
+                kubectl -n "$ns" create secret generic mattermost-creds \
+                  --from-literal=url="$MM_URL" \
+                  --from-literal=token="$TOKEN" \
+                  --from-literal=channel_id="$CHANNEL_ID" \
+                  --from-literal=team_id="$TEAM_ID" \
+                  --dry-run=client -o yaml | kubectl apply -f -
+              done
 
               echo "[mm] bootstrap complete"

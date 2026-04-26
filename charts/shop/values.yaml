@@ -1,0 +1,33 @@
+# Shop demo app — a stand-in for "real" workload that runs through full
+# GitOps lifecycle hooks (PreSync migrations, sync, PostSync e2e tests),
+# posting every stage as a threaded Mattermost message.
+#
+# Hooks are Argo Workflows (not plain Jobs) so they show up in the Argo
+# Workflows UI alongside the existing mattermost-thread-demo and you get
+# DAG visualization, retries, artifacts, etc. for free.
+
+# The "app" itself: nginx with a custom landing page so you can curl it.
+image: nginx:stable-alpine
+
+# Image used by every Workflow step. Needs curl + jq for talking to
+# Mattermost and a quick fake migration / e2e test. The "thread-start"
+# and "syncfail" steps additionally need kubectl to read/write the
+# thread ConfigMap, so those steps override the image to alpine/k8s.
+hookImage: badouralix/curl-jq:latest
+kubectlImage: alpine/k8s:1.30.0
+
+replicas: 1
+servicePort: 80
+
+# Hook Workflows live in the namespace where the Argo Workflows controller
+# runs (it's namespace-scoped to `argo`). The shared thread-id ConfigMap
+# lives there too.
+hookNamespace: argo
+
+# Name of the ConfigMap (in hookNamespace) that PreSync wave -2 creates
+# and every later stage reads to recover the Mattermost thread root_id.
+threadConfigMap: shop-mm-thread
+
+# ServiceAccount the hook Workflows run as (created in templates/rbac.yaml
+# in hookNamespace). Needs ConfigMap rw + workflow pod execution rights.
+hookServiceAccount: shop-hooks

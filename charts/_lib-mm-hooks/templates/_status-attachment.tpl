@@ -29,7 +29,7 @@ update_status() {
             elif .status == "running" then ":hourglass_flowing_sand: Running..."
             elif .status == "failed" then ":x: Failed"
             else "Pending" end),
-    short: true
+    short: false
   }]')
   curl -fsS -X PUT "$MM_URL/api/v4/posts/$ROOT_ID/patch" \
     -H "Authorization: Bearer $MM_TOKEN" \
@@ -37,6 +37,34 @@ update_status() {
     -d "$(jq -nc --argjson f "$_fields" --arg c "$_color" \
          '{props:{attachments:[{color:$c,fields:$f}]}}')" \
     >/dev/null
+}
+{{- end -}}
+
+{{/*
+mm-hooks.replyFunc — shell function definition. Include at the top of any
+hook's `source:` block to expose the `post_reply` helper:
+
+  post_reply ":hammer_and_wrench: migration complete (3 applied)"
+
+post_reply is a no-op when:
+  - $THREAD_REPLIES != "true" (chart opts out via .Values.threadStageReplies), or
+  - $ROOT_ID is empty (thread-start never ran).
+
+Use this for stage-progress replies that duplicate info already in the
+parent attachment status card. Use raw curl for failure replies that must
+always post (e.g. SyncFail, intentionally failing migrations).
+*/}}
+{{- define "mm-hooks.replyFunc" -}}
+post_reply() {
+  [ "${THREAD_REPLIES:-true}" = "true" ] || return 0
+  [ -n "${ROOT_ID:-}" ] || return 0
+  _msg="$1"
+  body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$_msg" --arg r "$ROOT_ID" \
+          '{channel_id:$c,message:$m,root_id:$r}')
+  curl -fsS -X POST "$MM_URL/api/v4/posts" \
+    -H "Authorization: Bearer $MM_TOKEN" \
+    -H 'Content-Type: application/json' \
+    -d "$body" | jq -r '"[reply id=" + .id + "]"'
 }
 {{- end -}}
 

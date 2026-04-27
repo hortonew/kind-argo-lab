@@ -25,6 +25,7 @@ spec:
         source: |
           set -eu
           {{ include "mm-hooks.statusFunc" . | nindent 10 }}
+          {{ include "mm-hooks.replyFunc" . | nindent 10 }}
 
           update_status '[
             {"label":"DB Migration","status":"done"},
@@ -32,10 +33,4 @@ spec:
             {"label":"End-To-End Tests","status":"pending"}
           ]'
 
-          MSG=":white_check_mark: Sync succeeded — Shop Deployment is Healthy"
-          body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
-                  '{channel_id:$c,message:$m,root_id:$r}')
-          curl -fsS -X POST "$MM_URL/api/v4/posts" \
-            -H "Authorization: Bearer $MM_TOKEN" \
-            -H 'Content-Type: application/json' \
-            -d "$body" | jq -r '"[shop] reply id=" + .id'
+          post_reply ":white_check_mark: Sync succeeded — Shop Deployment is Healthy"

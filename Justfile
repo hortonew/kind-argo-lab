@@ -36,3 +36,6 @@ port-forward: # Background kubectl port-forwards & print all lab URLs
 
 port-forward-stop: # Stop background port-forwards started by 'just port-forward'
   ./scripts/port-forward-stop.sh
+
+push-platform message="": # Force-push working-tree (charts/envs/apps) into gitea platform repo (no local commit)
+  ./scripts/push-platform.sh "{{message}}"

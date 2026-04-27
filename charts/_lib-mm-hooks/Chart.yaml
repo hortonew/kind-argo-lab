@@ -12,14 +12,19 @@ description: |
 
   And use these template helpers when writing their own per-chart hook
   Workflows (migration, e2e, etc.):
-    - {{ include "mm-hooks.replyEnv" . }}      # MM_* + ROOT_ID(optional CM) env block
+    - {{ include "mm-hooks.replyEnv" . }}      # MM_* + ROOT_ID(optional CM) + THREAD_REPLIES env block
     - {{ include "mm-hooks.cleanupEnv" . }}    # replyEnv + NS + THREAD_CM (for kubectl steps)
     - {{ include "mm-hooks.cleanupCmd" . }}    # `kubectl delete cm` cleanup line for terminal hooks
     - {{ include "mm-hooks.statusFunc" . }}    # update_status shell func (PATCH parent attachment)
+    - {{ include "mm-hooks.replyFunc" . }}     # post_reply shell func (gated by .Values.threadStageReplies)
 
   Required values in the consumer chart (see consumer values.yaml):
     hookNamespace, hookServiceAccount, hookNamePrefix, threadConfigMap,
     hookImage, kubectlImage, messages.threadStart, messages.syncFail,
     statusSteps
+  Optional values:
+    threadStageReplies (bool, default true) — when false, post_reply is a
+    no-op so per-stage progress messages are suppressed and the parent
+    attachment status card becomes the sole signal in the channel.
 type: library
-version: 0.2.0
+version: 0.3.0

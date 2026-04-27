@@ -41,6 +41,13 @@ statusSteps:
   - label: "Sync Status"
   - label: "End-To-End Tests"
 
+# Toggle per-stage progress replies into the thread (e.g. "migration
+# complete", "sync succeeded", e2e report URL). When false the parent
+# attachment status card becomes the sole signal — the thread stays clean
+# and only failure-path replies (SyncFail) appear in it. Failure replies
+# always fire regardless of this setting.
+threadStageReplies: true
+
 # Messages posted by the mm-hooks library Workflows.
 messages:
   threadStart: ":rocket: *Shop sync starting* — opening thread for migration → sync → e2e"

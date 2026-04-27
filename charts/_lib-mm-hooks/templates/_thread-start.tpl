@@ -52,7 +52,7 @@ spec:
           FIELDS=$(echo "$INITIAL_STEPS" | jq -c '[.[] | {
             title: .label,
             value: "Pending",
-            short: true
+            short: false
           }]')
           ATTACH=$(jq -nc --argjson f "$FIELDS" \
             '{attachments:[{color:"#2196F3",fields:$f}]}')

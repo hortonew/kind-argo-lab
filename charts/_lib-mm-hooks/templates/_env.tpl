@@ -31,6 +31,12 @@ mm-hooks.replyEnv — env block for any hook step that REPLIES into the thread.
 Reads ROOT_ID from the shared ConfigMap via configMapKeyRef (no kubectl).
 `optional: true` keeps the pod startable even if the CM is missing — matters
 for the SyncFail hook when wave -2 itself failed before creating the CM.
+
+THREAD_REPLIES gates the `post_reply` helper (mm-hooks.replyFunc): when
+"false", per-stage progress replies are suppressed and the parent
+attachment status card becomes the sole signal. Failure-path replies that
+use raw curl (SyncFail, intentionally failing migrations) always fire.
+Source of truth: .Values.threadStageReplies (default true).
 */}}
 {{- define "mm-hooks.replyEnv" -}}
 - name: MM_URL
@@ -45,6 +51,8 @@ for the SyncFail hook when wave -2 itself failed before creating the CM.
       name: {{ .Values.threadConfigMap }}
       key: root_id
       optional: true
+- name: THREAD_REPLIES
+  value: "{{ if hasKey .Values "threadStageReplies" }}{{ .Values.threadStageReplies }}{{ else }}true{{ end }}"
 {{- end -}}
 
 {{/*

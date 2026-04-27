@@ -1,13 +1,15 @@
 {{/*
-mm-hooks.syncfail — SyncFail Workflow. Posts the abort notice into the
-thread opened by PreSync wave -2 and then drops the thread ConfigMap as
-the terminal action on the failure path.
+mm-hooks.syncfail — SyncFail Workflow. PATCHes the parent post attachment
+to show failure state, posts the abort notice into the thread opened by
+PreSync wave -2, and then drops the thread ConfigMap as the terminal
+action on the failure path.
 
 If wave -2 itself failed before creating the CM, ROOT_ID is empty and we
 fall back to a top-level post so the failure is still visible.
 
 Required values: hookNamePrefix, hookNamespace, hookServiceAccount,
-                 kubectlImage, threadConfigMap, messages.syncFail.
+                 kubectlImage, threadConfigMap, messages.syncFail,
+                 statusSteps.
 */}}
 {{- define "mm-hooks.syncfail" -}}
 ---
@@ -33,9 +35,18 @@ spec:
           {{- include "mm-hooks.cleanupEnv" . | nindent 10 }}
           - name: MSG
             value: {{ .Values.messages.syncFail | quote }}
+          - name: FAIL_STEPS
+            value: {{ include "mm-hooks.initialAttachment" . | squote }}
         command: [sh]
         source: |
           set -eu
+          {{ include "mm-hooks.statusFunc" . | nindent 10 }}
+
+          if [ -n "${ROOT_ID:-}" ]; then
+            _fail_fields=$(echo "$FAIL_STEPS" | jq -c '[.[] | .status = "failed"]')
+            update_status "$_fail_fields" '#D32F2F'
+          fi
+
           if [ -n "${ROOT_ID:-}" ]; then
             body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
                     '{channel_id:$c,message:$m,root_id:$r}')

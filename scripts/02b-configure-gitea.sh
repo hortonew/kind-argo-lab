@@ -48,7 +48,7 @@ cp -RL charts envs apps "${WORKDIR}/"
   git config user.name "lab-bot"
   git config user.email "lab-bot@local"
   git add charts envs apps
-  git commit -m "bootstrap platform repo"
+  git commit --no-verify -m "bootstrap platform repo"
   git remote add origin "${GITEA_AUTH_URL}/${ORG}/platform.git"
   GIT_TERMINAL_PROMPT=0 git push -u origin main --force
 )
@@ -125,7 +125,7 @@ MANIFEST
   git config user.name "lab-bot"
   git config user.email "lab-bot@local"
   git add deploy
-  git commit -m "bootstrap demo-app repo"
+  git commit --no-verify -m "bootstrap demo-app repo"
   git remote add origin "${GITEA_AUTH_URL}/${ORG}/demo-app.git"
   GIT_TERMINAL_PROMPT=0 git push -u origin main --force
 )

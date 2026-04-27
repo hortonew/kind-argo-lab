@@ -30,6 +30,14 @@ spec:
         command: [sh]
         source: |
           set -eu
+          {{ include "mm-hooks.statusFunc" . | nindent 10 }}
+
+          update_status '[
+            {"label":"DB Migration","status":"done"},
+            {"label":"Sync Status","status":"done"},
+            {"label":"End-To-End Tests","status":"running"}
+          ]'
+
           TARGET="http://shop.shop.svc.cluster.local:{{ .Values.servicePort }}/"
           WF_NAME="shop-pw-$(date +%s)"
           echo "[shop] submitting playwright-e2e workflow $WF_NAME against $TARGET"
@@ -66,8 +74,18 @@ spec:
 
           REPORT_URL="http://localhost:9000/argo-artifacts/$WF_NAME/$WF_NAME/playwright-report/index.html"
           if [ "$PHASE" = "Succeeded" ]; then
+            update_status '[
+              {"label":"DB Migration","status":"done"},
+              {"label":"Sync Status","status":"done"},
+              {"label":"End-To-End Tests","status":"done"}
+            ]' '#4CAF50'
             MSG=":test_tube: PostSync e2e (Playwright) passed → [HTML report]($REPORT_URL)"
           else
+            update_status '[
+              {"label":"DB Migration","status":"done"},
+              {"label":"Sync Status","status":"done"},
+              {"label":"End-To-End Tests","status":"failed"}
+            ]' '#D32F2F'
             MSG=":rotating_light: PostSync e2e (Playwright) finished phase=$PHASE → [HTML report]($REPORT_URL)"
           fi
 

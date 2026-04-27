@@ -24,6 +24,14 @@ spec:
         command: [sh]
         source: |
           set -eu
+          {{ include "mm-hooks.statusFunc" . | nindent 10 }}
+
+          update_status '[
+            {"label":"DB Migration","status":"done"},
+            {"label":"Sync Status","status":"done"},
+            {"label":"End-To-End Tests","status":"pending"}
+          ]'
+
           MSG=":white_check_mark: Sync succeeded — Shop Deployment is Healthy"
           body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \
                   '{channel_id:$c,message:$m,root_id:$r}')

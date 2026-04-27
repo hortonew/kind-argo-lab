@@ -48,6 +48,16 @@ for the SyncFail hook when wave -2 itself failed before creating the CM.
 {{- end -}}
 
 {{/*
+mm-hooks.statusSource — emits the update_status shell function definition
+followed by a newline. Include at the top of a hook's `source:` block so
+that the rest of the script can call `update_status '<steps-json>' [color]`.
+Wraps mm-hooks.statusFunc for convenient one-liner inclusion.
+*/}}
+{{- define "mm-hooks.statusSource" -}}
+{{ include "mm-hooks.statusFunc" . }}
+{{- end -}}
+
+{{/*
 mm-hooks.cleanupEnv — replyEnv plus NS + THREAD_CM, for terminal hooks that
 need kubectl access to delete the thread ConfigMap on completion.
 */}}

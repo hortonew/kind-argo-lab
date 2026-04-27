@@ -24,9 +24,15 @@ spec:
         command: [sh]
         source: |
           set -eu
+          {{ include "mm-hooks.statusFunc" . | nindent 10 }}
+
+          update_status '[{"label":"DB Migration","status":"running"}]'
+
           echo "[shop-fail] starting fake migration..."
           for i in 1 2; do echo "  applying migration $i"; sleep 1; done
           echo "[shop-fail] migration 3 BOOM — schema lock conflict"
+
+          update_status '[{"label":"DB Migration","status":"failed"}]' '#D32F2F'
 
           MSG=":boom: PreSync migration FAILED — schema lock conflict on migration 3 of 3"
           body=$(jq -nc --arg c "$MM_CHANNEL" --arg m "$MSG" --arg r "$ROOT_ID" \

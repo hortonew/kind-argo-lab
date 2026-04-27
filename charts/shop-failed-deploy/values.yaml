@@ -31,6 +31,11 @@ hookServiceAccount: shop-failed-deploy-hooks
 # prefix also makes the Workflows easy to spot in the Workflows UI.
 hookNamePrefix: shop-failed-deploy
 
+# Steps shown in the parent-post status attachment. Only one step here
+# because this chart's migration is wired to fail before anything else runs.
+statusSteps:
+  - label: "DB Migration"
+
 # Messages posted by the mm-hooks library Workflows.
 messages:
   threadStart: ":rocket: *Shop FAILED-DEPLOY demo* — opening thread (this sync is wired to fail)"

@@ -34,6 +34,13 @@ hookServiceAccount: shop-hooks
 # output. The mm-hooks library uses this to namespace its workflows.
 hookNamePrefix: shop
 
+# Steps shown in the parent-post status attachment. Thread-start renders
+# them all as "Pending"; each hook PATCHes its own step to running/done.
+statusSteps:
+  - label: "DB Migration"
+  - label: "Sync Status"
+  - label: "End-To-End Tests"
+
 # Messages posted by the mm-hooks library Workflows.
 messages:
   threadStart: ":rocket: *Shop sync starting* — opening thread for migration → sync → e2e"

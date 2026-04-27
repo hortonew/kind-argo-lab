@@ -15,9 +15,11 @@ description: |
     - {{ include "mm-hooks.replyEnv" . }}      # MM_* + ROOT_ID(optional CM) env block
     - {{ include "mm-hooks.cleanupEnv" . }}    # replyEnv + NS + THREAD_CM (for kubectl steps)
     - {{ include "mm-hooks.cleanupCmd" . }}    # `kubectl delete cm` cleanup line for terminal hooks
+    - {{ include "mm-hooks.statusFunc" . }}    # update_status shell func (PATCH parent attachment)
 
   Required values in the consumer chart (see consumer values.yaml):
     hookNamespace, hookServiceAccount, hookNamePrefix, threadConfigMap,
-    hookImage, kubectlImage, messages.threadStart, messages.syncFail
+    hookImage, kubectlImage, messages.threadStart, messages.syncFail,
+    statusSteps
 type: library
 version: 0.2.0
